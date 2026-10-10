@@ -31,7 +31,7 @@ const server=createServer(async(req,res)=>{
   }catch {res.writeHead(404);res.end('Not found');}
 });
 await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
-let browser, socket;
+let browser, socket, call;
 try {
   browser=spawn(process.env.CHROMIUM||'chromium',['--headless','--no-sandbox','--disable-gpu',
     '--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-debugging-port=0',
@@ -57,7 +57,7 @@ try {
     if(data.id){const waiter=pending.get(data.id);if(waiter){pending.delete(data.id);data.error?waiter.reject(Error(JSON.stringify(data.error))):waiter.resolve(data.result);}}
     else if(data.method==='Runtime.exceptionThrown')failures.push(data.params.exceptionDetails);
   };
-  const call=(method,params={})=>new Promise((resolve,reject)=>{
+  call=(method,params={})=>new Promise((resolve,reject)=>{
     const id=++nextId;pending.set(id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));
   });
   await call('Runtime.enable');
@@ -77,8 +77,15 @@ try {
   console.log(result.flow);console.log(result.wasm);
   console.log('PASS: static /studio/ subpath, no COOP/COEP headers and no native API requests.');
 } finally {
+  if(socket?.readyState===WebSocket.OPEN&&call){
+    await Promise.race([call('Browser.close').catch(()=>{}),new Promise(resolve=>setTimeout(resolve,1000))]);
+  }
   socket?.close();
-  if(browser&&browser.exitCode===null){const exited=new Promise(resolve=>browser.once('exit',resolve));browser.kill('SIGKILL');await exited;}
+  if(browser&&browser.exitCode===null){
+    const exited=new Promise(resolve=>browser.once('exit',resolve));
+    const fallback=setTimeout(()=>browser.kill('SIGKILL'),2000);
+    await exited;clearTimeout(fallback);
+  }
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
-  await rm(profile,{recursive:true,force:true});
+  await rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:100});
 }
