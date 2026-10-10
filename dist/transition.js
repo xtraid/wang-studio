@@ -1,4 +1,4 @@
-/* Boundary-word transition. Uses the editor's actual polygons and edge keys. */
+/* Shared extraction of finite regions and ordered simple boundaries. */
 const transitionGeometries=['square','tri-up','tri-side','hex-flat','hex-point'];
 const transitionLimit=20000;
 const vertexNumbers=v=>v.split(',').map(Number);
@@ -94,42 +94,3 @@ function readTransitionRegion(g,borders,palette){
  if(region.boundary.length!==keys.length||region.boundary.some(e=>!barriers.has(e.key)))throw Error('Il bordo non coincide con la regione: buchi o bordi interni non supportati.');
  return{...region,colors:region.boundary.map(e=>borders[e.key])};
 }
-function constructTransitionRegion(m,g){
- transitionGeometry(g);if(!Number.isSafeInteger(m)||m<3||m>transitionLimit)throw Error('Perimetro fuori dai limiti supportati.');
- let ids=[];
- if(g.startsWith('tri')){for(let k=0;k<m-2;k++)ids.push(`${Math.floor(k/2)},0,${k%2}`);}
- else if(g==='square'){
-  if(m<4||m%2)throw Error('I quadrati richiedono un perimetro pari almeno 4.');
-  for(let i=0;i<(m-2)/2;i++)ids.push(`${i},0`);
- }else{
-  if(m<6||m%2||m===8)throw Error('Gli esagoni supportano 6, 10 e tutti i perimetri pari da 12.');
-  if(m%4===2){for(let i=0;i<(m-2)/4;i++)ids.push(`${i},0`);}
-  else{ids=['0,0','1,0','0,1'];for(let i=1;i<=(m-12)/4;i++)ids.push(`${-i},0`);}
- }
- const result=regionBoundary(ids,g);if(result.boundary.length!==m)throw Error('La costruzione non conserva il perimetro.');return result;
-}
-function planGeometryTransition(source,target){
- transitionGeometry(target);
- const existing=state.boards[target];
- if(target!==source&&existing&&(Object.keys(existing.placed).length||Object.keys(existing.borders).length))throw Error('La griglia di destinazione è occupata. Salvala e svuotala prima della transizione.');
- const original=readTransitionRegion(source,state.boards[source].borders,state.palette);
- const result=constructTransitionRegion(original.boundary.length,target),borders={};
- result.boundary.forEach((e,i)=>{borders[e.key]=original.colors[i];});
- const next=clone(state),f=target.split('-')[0];
- next.geometry=target;next.boards[source]={placed:{},borders:{}};next.boards[target]={placed:{},borders};
- if(!next.sets[f])next.sets[f]=[];
- next.solverEngine=null;
- return{next,original,result};
-}
-function transitionRegion(target){
- let plan;try{plan=planGeometryTransition(state.geometry,target);}catch(err){message('Transizione non applicata: '+err.message);return false;}
- let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
- for(const e of plan.result.boundary){const[x,y]=vertexNumbers(e.from).map(n=>n/1e5);x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}
- snapshot();state=plan.next;selected=0;hover=null;mode='border';
- zoom=Math.max(.35,Math.min(1,(width-60)/(58*(x1-x0)),(height-60)/(58*(y1-y0))));
- pan={x:-(x0+x1)*scale()/2,y:-(y0+y1)*scale()/2};
- ensure();rebuild();renderUI();setMode('border');
- message(`Regione trasformata: ${plan.result.n} celle, ${plan.result.boundary.length} segmenti conservati. Tessere posate non trasferite; definisci il tileset separatamente. Ctrl+Z per annullare.`);
- return true;
-}
-$('#transitionRegion').onclick=()=>transitionRegion($('#transitionGeometry').value);

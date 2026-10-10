@@ -1,150 +1,199 @@
-# Region boundary transitions
+# Logical geometry transitions
 
-This operation implements the boundary-preserving construction specified for
-*Research on Tiling Complexity*. It transforms a finite connected region and
-its boundary conditions, without claiming to preserve tileability.
+This implementation follows section 1.2.4 of **Research on Tiling Complexity**,
+`tiling_complexity_con_note.pdf`, downloaded on 10 October 2026. Its SHA-256 is
+`1f09803bf47cb14381ccc164c98f5e701652e14e392177df64fac19c8ebd2ea7`.
+It replaces the earlier operation that preserved the number of atomic boundary
+segments and constructed a strip or chain.
 
-## Existing representation and integration
+The operational choices confirmed for this version are:
 
-The editor stores a board for each geometry in `state.boards[geometry]`.
-A board contains `placed`, mapping cell IDs to tile edge tuples, and `borders`,
-mapping undirected atomic edge keys to palette indices. A jolly edge has value
-`null`; absence of a key means no drawn boundary. Palette indices, rather than
-RGB values, identify colors. Two indices with equal RGB values remain distinct.
+- Initially, each source cell is one logical unit.
+- A target unit can occupy several connected atomic cells.
+- Every logical interface occupies a positive number of consecutive atomic sides.
+- Logical incidences, cyclic interface order and boundary colors are invariants.
+- Atomic interface lengths, region area and the internal/external face ratio are
+  not invariants. Area error and the face ratio are two separate Pareto objectives.
+- The target tileset is constructed independently of the source tileset.
 
-There is no persistent explicit region object. Cells inside the drawn contour
-are reconstructed when a transition is requested. The operation uses **all**
-borders on the current board, independently of the rectangular selection tool
-and the viewport. Multiple contours are rejected rather than choosing one.
-Tiles already placed on the board do not define the region.
+## Use in the editor
 
-`cellAt(id, geometry)` and `lattice(point, geometry)` reuse the editor's existing
-polygons and coordinate systems. The optional geometry argument lets planning
-inspect another geometry without changing the current state. `transition.js`
-contains extraction, construction, validation and the atomic state update.
-The solver and its square-only instance contract are unchanged.
+Draw one closed region and open **Transizione geometrica · unità logiche**.
+Choose a target geometry and a search time, then select **Cerca realizzazioni**.
+The browser searches in a Worker without changing the project. The candidate
+selector contains one representative for each non-dominated objective pair
+found. The preview colors identify logical units, not Wang edge colors.
 
-## Boundary order
+After choosing a candidate, **Applica realizzazione e nuovo tileset** commits
+one undoable operation. The source board is cleared; the target must be empty.
+The target-family tileset is replaced by a newly constructed atomic tileset.
+Placed source tiles are not converted or copied. Other orientations sharing
+that target family also use the new family tileset, as in the existing editor.
 
-1. Each boundary edge contributes its two endpoints to an incidence map.
-2. Every vertex must have degree two, and one traversal must visit all edges.
-   Open contours, branches, point contacts, holes and separate components fail.
-3. Every drawn edge must be an actual atomic side with two grid-cell owners.
-   Atomic edges in these regular grids cannot cross away from grid vertices.
-4. The start is the endpoint with smallest x, breaking ties by smallest y,
-   using the editor's quantized endpoint coordinates.
-5. Traversal is anticlockwise **as seen on the canvas**. Canvas y increases
-   downward, so the signed shoelace area is negative. Equivalently, use the
-   ordinary mathematical anticlockwise convention after replacing y by -y.
+Dashed blue lines on the board show contacts between logical units. Save/load
+retains their partition and interfaces. A subsequent transition uses that same
+logical graph, rather than treating every target atom as a new logical unit.
+**Ogni cella come unità** explicitly resets the partition when desired.
+If editing a contour invalidates its saved partition or colors, the next
+transition rejects it and asks for an explicit partition reset.
 
-Orientation is established from geometry, never from the colors. Reversing the
-initial arbitrary graph walk also reverses each directed edge, retaining the
-same starting vertex. No color-dependent normalization, cyclic rotation or
-reflection is performed during transfer.
+## Representation and certificate
 
-The cell on the interior side of the first oriented edge seeds a flood fill.
-The fill crosses shared atomic sides except drawn barriers. Its exposed sides
-must coincide exactly with the input boundary. Connectivity, one simple cycle
-and the perimeter identity are verified again on the resulting cell set.
+The existing `state.boards[g]` still contains `placed` and `borders`. The optional
+`logical` member records:
 
-## Deterministic target constructions
+- `graph.units`: logical units and their ordered ports, including original cell IDs;
+- `graph.boundary`: distinct external interface IDs, owner units and palette indices;
+- `cellUnits`: the target partition, mapping every region cell to exactly one unit;
+- `edgeInterfaces`: the external logical interface occupying each exposed side;
+- `contacts`: grid sides separating different logical units, for display;
+- `transition`: normalization, source/target metrics, search method/status and
+  the policy used to construct the new tileset.
 
-The square and hexagonal coordinates below are the editor's integer cell IDs.
-Hexagons use axial coordinates. A triangular cell ID is `(i,j,h)`, where
-`h` is 0 or 1 for the two geometric orientations.
+An interface is identified by its ID, **not by its color**. Adjacent interfaces
+with the same color remain distinct. Palette entries with identical RGB values
+also remain distinct. Jolly interfaces preserve `null` over their full expansion.
 
-| Target | Cells | Supported perimeter |
-| --- | --- | --- |
-| Triangle | `(floor(k/2),0,k mod 2)`, for `0 <= k < m-2` | Every integer `m >= 3` |
-| Square | `(i,0)`, for `0 <= i < (m-2)/2` | Even `m >= 4` |
-| Hexagon, chain | `(i,0)`, for `0 <= i < (m-2)/4` | `m = 4q+2`, `q >= 1` |
-| Hexagon, triangle and tail | `(0,0)`, `(1,0)`, `(0,1)`, then `(-i,0)` for `1 <= i <= (m-12)/4` | `m = 12+4q`, `q >= 0` |
+The verifier checks each proposed realization independently of its generator:
 
-The triangle chain alternates the two fixed geometric cell orientations. Each
-additional cell shares exactly one side. The square strip has the same property.
-Their perimeters are `n+2` and `2n+2`, respectively.
+1. Cells form a finite connected region with one simple outer boundary.
+2. The partition covers it exactly, and every unit is nonempty, connected and
+   has one simple boundary in the currently supported representation.
+3. Each contact occupies one consecutive run of sides on each incident unit.
+4. The cyclic sequence of neighboring units matches the source ports exactly.
+   A missing, additional, repeated or reversed contact rejects the candidate.
+5. Each external port receives at least one consecutive exposed side. Its palette
+   index is copied to all of them. Expansion lengths are balanced deterministically
+   within each exterior run; they are not inferred by merging equal colors.
+6. The outer cycle visits the original external interface IDs in the same cyclic
+   order, without reflection, splitting or additional interfaces.
 
-The three initial hexagons are pairwise adjacent around one common vertex:
-`n=3`, `a=3`, hence `6n-2a=12`. The tail grows away from the other two hexagons;
-each added cell shares one side. The chain family has perimeter `4n+2`, and the
-second family has perimeter `4n`. Together they cover 6, 10 and every even
-perimeter from 12; perimeter 8 is rejected.
+Unit boundaries are traversed anticlockwise on the canvas, whose y axis points
+down. Cyclic comparison permits a different starting point, but never a reversal.
+The deterministic geometric start remains the leftmost, then uppermost endpoint.
 
-Construction uses actual polygon edge keys to count internal adjacencies and
-extract the target boundary. It verifies `m = sn - 2a` and that the target has
-exactly the requested number of exposed sides. These checks catch unintended
-extra adjacencies instead of relying only on the formulas.
+The explicit source-to-target unit labels provide the isomorphism certificate;
+there is no need to guess a graph isomorphism after accepting a candidate.
+The certificate is checked again on the main thread before applying the result.
+It is also rechecked before using a saved partition for another transition.
 
-The UI offers canonical triangle (`tri-up`), square and hexagon (`hex-flat`)
-targets. Extraction supports all five existing drawing orientations; the
-construction code and tests also support `tri-side` and `hex-point`.
+## Area and global contact objectives
 
-## Color transfer and state changes
+All mathematical cell areas use a circumcircle of **circumference 1**:
 
-Given the two ordered boundaries, target edge `i` receives source edge `i`'s
-palette index. This preserves the full sequence and the last-to-first adjacency.
-The implementation extends the same rule to jolly edges: `null` stays `null` and
-is not treated as a color. No palette deduplication occurs.
+```
+a_s = s * sin(2*pi/s) / (8*pi^2)
+A(R) = n * a_s
+Delta_A = abs(A(source) - A(target))
+Fint = 2 * number_of_shared_atomic_sides
+Fext = number_of_exposed_atomic_sides
+eta = Fint / Fext
+```
 
-Planning completes all geometric checks before taking an undo snapshot or
-changing editor state. A failure only changes the status message. On success:
+`Fint` includes every internal atomic contact, including those inside a logical
+unit. These quantities are calculated on the **whole region**, not on individual
+interfaces. The canvas continues using its existing drawing scale; pixel area
+is not the physical normalization used for comparison.
 
-- The source board is cleared and the target board receives only the new contour.
-- Placed tiles are not transferred. Undo restores them together with the source.
-- A different target board must be empty, so an existing composition is not lost.
-- Existing target-family tilesets remain unchanged; an absent tileset becomes
-  empty. No tiles are synthesized, rotated or converted between side counts.
-- The target becomes active and the interface switches to boundary drawing.
-- The operation adds one undo entry. Save/load uses the existing board schema.
+Candidate X dominates Y only when X has no larger area error and no smaller eta,
+with at least one strict improvement. There is no weighted sum and no implicit
+lexicographic preference. Equal objective pairs retain one representative;
+this is a frontier of observed objective pairs, not a list of every realization.
 
-Existing solver session checks compare their original instance to current state,
-so incompatible stale results cannot be applied after changing the region.
-The operation makes no assertion about existence or number of target tilings.
+Floating-point values are used for display. For comparisons, cell areas have the
+common denominator `16*pi^2` and numerators `3*sqrt(3)`, `8`, `6*sqrt(3)`.
+Area-error ordering uses exact BigInt arithmetic in `Q(sqrt(3))`; eta is compared
+by integer cross multiplication. Rounding cannot change Pareto dominance.
 
-## Complexity and numerical limits
+## Candidate search and its limits
 
-Let `n` be the source cell count and `m` its boundary segment count. The core
-transition uses expected constant-time JavaScript Map/Set operations:
+Two generators run alongside each other:
 
-- Boundary incidence, ordering, geometric side validation and coloring: `O(m)`.
-- Interior flood fill and region adjacency validation: `O(n)`.
-- Target construction and validation: `O(m)` cells and sides.
+- Geometric samples map target cell centers to source units at several scales
+  and grid phases. This accelerates discovery and is **not** an invariant or a
+  guarantee that a suitable sample exists.
+- A lattice-animal enumerator grows finite connected target cell sets, normalized
+  only by translation. It tries labelled partitions, pruning impossible contacts.
+  Triangular seeds include both fixed cell orientations.
 
-Each neighboring-cell lookup examines a fixed lattice neighborhood (at most 18
-candidate cells); edge-owner validation examines at most 72 candidates. There
-is no scan of a region's bounding rectangle, no sorting of the whole boundary,
-and no pairwise intersection scan in the production algorithm. Since `m <= 6n`,
-the **core geometric transition** is expected `O(n)` time and memory. This uses
-the bounded coordinate/key representation and expected Map/Set costs, not an
-unconditional worst-case guarantee for a JavaScript runtime.
+Every candidate from either generator passes the same certificate. Geometry
+sampling never authorizes an approximate contact, a color change or relaxed
+interface order. A failed sample is discarded without changing the source.
+The former fixed-perimeter strip/chain construction remains only as a geometry
+regression fixture; it no longer implements the editor's transition command.
 
-The **whole editor action is not claimed to be O(n)**: cloning the project for
-planning and undo costs `O(S)` in total saved project size, including other
-boards and tilesets. UI rebuilding also depends on visible grid cells, palette,
-placed tiles and tileset size. Existing undo history retains up to 80 snapshots.
+The unbounded research space is **not** replaced by an artificial maximum region
+size. The browser nevertheless has operational budgets: selectable search time,
+20,000 queued lattice forms and the editor's existing 20,000-cell/segment and
+coordinate limits. Hitting one reports an incomplete search, not an empty
+mathematical realization space. All individual accepted candidates are finite.
 
-The implementation limits both explicit regions and contours to 20,000 cells
-or segments. Cell lattice coordinates must have absolute value at most 100,000;
-boundary coordinates are also bounded to 100,000 world units. Endpoint keys
-reuse the editor's rounding to `1e-5` world units. This is not an exact symbolic
-geometry representation: failures to establish shared sides are rejected,
-never repaired by geometric approximation. Checks run synchronously; large
-accepted regions can briefly occupy the UI thread. Large PNG exports remain
-subject to the editor's existing image-size limits.
+The search is combinatorial and can be exponential. The former claim of an
+expected linear-time boundary conversion does not apply to this optimization.
+The current implementation does not compute a certified global Pareto frontier
+or decide every possible transition.
 
-## Tests
+### Distinct outcomes
 
-`node tests/test_transition.cjs` checks all supported pairs of the five drawing
-orientations for `m = 6,8,10,12,14,16,18,20,22,24`, plus smaller odd triangular
-cases. Checks include connectivity, simple boundary, exact color sequence,
-perimeter identity, successive transformations, offscreen coordinates, empty
-target tilesets, undo/redo, serialization and atomic rejection.
+- **A realization was found:** its incidences, interface order and colors are
+  verified. Pareto comparisons refer only to candidates found in this search.
+- **Search incomplete/interrupted:** time, memory or an editor resource limit was
+  reached. An empty frontier is not proof that no realization exists.
+- **Not realizable:** a specific incompatibility certificate was established.
+- **Invalid/unsupported input:** no transition is applied, and the input error is
+  shown separately.
 
-An independent convex-polygon separating-axis check verifies that generated
-cells have no positive-area overlap. Color words contain repeated colors, a
-unique starting marker, equal-RGB/different-index colors and jolly sides; exact
-array equality rejects any unwanted rotation or reversal.
+One recognized incompatibility uses the fixed embedded contact graph. In the
+supported disk-unit, simple-region model, an internal face of degree k requires
+an internal k-way junction. The triangular, square and hexagonal lattices allow
+at most 6, 4 and 3 sectors respectively. Contracting connected disk units and
+collapsing consecutive contacts cannot increase this internal face degree.
+A larger source internal face therefore cannot be realized without another
+contact or external interface, both forbidden here. For example, four squares
+in a 2-by-2 block cannot become hexagonal units with that same interface complex.
 
-The actual Chromium integration test clicks the transition controls, checks a
-square → hexagon → triangle → square chain, Undo/Redo, PNG export and occupied
-destination rejection, then runs the existing C solver tests.
+This certificate is not a general decision algorithm. Holes, non-simple regions,
+units with multiple boundary components and arbitrary user-defined initial
+partitions are outside the current supported class. No impossibility claim is
+made for those unsupported inputs or for the broader research space.
+
+## A new tileset, not a conversion
+
+For an accepted region, the implementation constructs an **atomic witness
+tileset** independently of the original tile types:
+
+- Exposed constrained sides take their transferred boundary color.
+- All internal sides use palette index 0 as a declared construction convention.
+- Jolly sides also choose index 0 for this witness, without constraining the border.
+- Each resulting edge tuple is included once in the new tileset.
+
+This gives an explicit atomic assignment satisfying the new boundary and all
+internal side equalities under the editor's existing side conventions. It does
+not claim to preserve satisfiability, tile identities or solution count of the
+source problem. No such property was selected as an invariant.
+
+A logical unit containing multiple atoms is **not** labelled a generalized Wang
+tile. Constructing generalized tiles would additionally require verifying their
+unique internal decomposition. This version chooses the permitted atomic
+realization route and makes no generalized-tile uniqueness claim. Triangle side
+numbering retains the editor's existing two-orientation convention; this change
+does not resolve the research question about alternative orientation semantics.
+
+The C tiling solvers are unchanged and remain square-only with their existing
+limits. A geometric transition can therefore produce a valid region and tileset
+that those solver endpoints cannot yet process.
+
+## Files and checks
+
+- `geometry.js`: the same polygon and coordinate functions shared by editor and Worker.
+- `transition.js`: existing region and ordered-boundary extraction.
+- `logical-transition.js`: interface graphs, certificates, obstruction and new tilesets.
+- `transition-objectives.js`: normalized metrics and exact Pareto comparisons.
+- `transition-search.js`, `transition-worker.js`: cancellable candidate search.
+- `transition-ui.js`: preview, explicit selection, atomic commit and saved partition.
+
+Checks cover area normalization, doubled internal faces, Pareto tradeoffs and
+ties, expanded same-color interfaces, connected grouped units, extra contacts,
+reversed ports, obstruction proofs, saved partitions and independent tilesets.
+Real Chromium tests cover Worker search, timeout/Stop, preview selection, apply,
+Undo/Redo, save/load, successive transitions and the unchanged C solvers.

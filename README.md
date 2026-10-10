@@ -20,8 +20,8 @@ boundary conditions, and explore their solutions.
 - Save and load projects as JSON, and export transparent PNG images.
 - Solve square regions with either **C · ottimizzato** or **C · riferimento**.
 - Step through solutions, count them, or stop a running search.
-- Transform a closed region between square, triangular and hexagonal grids,
-  preserving every boundary segment and its position in the cyclic color sequence.
+- Search for geometric realizations preserving logical contacts and ordered
+  interfaces, and compare their normalized area error and global contact ratio.
 
 **Solving currently supports square regions.** Triangle and hexagon editing
 and exports are available; their solver support is still to be implemented.
@@ -65,28 +65,37 @@ a paused session expires after 10 minutes. Stop, timeout or expiry releases
 the Worker and retains the last reported lower bound. **Prima** starts again.
 Closing the page stops the search; save your project as JSON to keep your work.
 
-## Transform a region
+## Transition between geometries
 
-Draw a single closed boundary on the current grid, then expand **Trasforma una
-regione** below the geometry selector. Choose **Quadrati**, **Triangoli** or
-**Esagoni** and click **Trasforma la regione**. The usual grid selector still
-switches between independent compositions; it does not perform a transition.
+Draw one closed region, then open **Transizione geometrica · unità logiche**.
+Choose a destination and search time, and click **Cerca realizzazioni**.
+Initially each source cell is one logical unit. Target units may contain several
+connected cells, while preserving their contacts and cyclic interface order.
+Each logical interface can expand to multiple consecutive atomic sides, all
+carrying its original color. Its identity is retained even next to an interface
+with the same color.
 
-The operation moves the contour to a deterministic shape with exactly the same
-number of boundary segments and the same anticlockwise color sequence. Jolly
-sides remain jolly. The source grid is cleared; placed tiles are not transferred.
-The destination must be empty. Its existing tileset remains available, or starts
-empty if none exists. Define the destination tileset separately. **Undo** restores
-the complete previous project state.
+The browser searches without changing the project. Choose a realization from
+the observed **Pareto frontier** using its preview, area error and global ratio
+of internal to external atomic faces. Then click **Applica realizzazione e nuovo
+tileset**. This constructs an independent atomic tileset, clears the source board
+and replaces the target-family tileset. The destination board must be empty.
+**Undo** restores the previous project, including its tilesets.
 
-All three target geometries support even perimeters from 12 onward. Smaller
-supported perimeters depend on the target: triangles accept any integer from 3,
-squares any even integer from 4, and hexagons also accept 6 and 10. Holes,
-disconnected or non-simple contours are rejected without changing the project.
+Saved projects retain the logical partition for later transitions. Use **Ogni
+cella come unità** to reset it explicitly after changing the region. Jolly
+interfaces remain unconstrained throughout their expansion.
 
-This operation preserves boundary conditions, not shape, area or tileability.
-See [the mathematical conventions and implementation](GEOMETRY_TRANSITIONS.md)
-for constructions, invariants, complexity and limits.
+An interrupted search is **incomplete**, not proof of impossibility. A result is
+reported as **non realizzabile** only when a specific incompatibility is proved.
+The displayed frontier is relative to candidates found; global optimality is
+not certified. Holes and non-simple contours remain unsupported.
+
+Area and contact ratio are optimization objectives, not exact invariants.
+Satisfiability and solution count are not preserved. The current implementation
+builds atomic tilesets; a group of cells is not automatically a generalized tile.
+See [GEOMETRY_TRANSITIONS.md](GEOMETRY_TRANSITIONS.md) for the mathematical
+conventions, certificates, search limits and tileset construction.
 
 ## How it connects to Tiling Foundry
 

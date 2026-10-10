@@ -86,6 +86,7 @@ try {
     if(result.flow&&result.wasm)break;
     await new Promise(resolve=>setTimeout(resolve,100));
   }
+  assert.deepEqual(failures,[],'No unhandled browser errors');
   assert.match(result?.flow||'No flow result',/^PASS/);
   assert.match(result?.wasm||'No Wasm result',/^PASS/);
   assert.deepEqual(apiRequests,[],'Static browser mode must never contact a native API');

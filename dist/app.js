@@ -10,23 +10,7 @@ function ensure(){resetSelection();if(mode==='paste')mode='select';ink=Math.min(
 function message(s){$('#status').textContent=s;}
 function snapshot(){history.push(clone(state));if(history.length>80)history.shift();future=[];}
 function undo(redo=false){const from=redo?future:history,to=redo?history:future;if(!from.length)return;to.push(clone(state));state=from.pop();ensure();rebuild();renderUI();draw();}
-function key(a,b){const p=a.map(v=>Math.round(v*1e5)).join(','),q=b.map(v=>Math.round(v*1e5)).join(',');return[p,q].sort().join('|');}
-function polygon(kind,x,y,r){const n=kind==='square'?4:kind.startsWith('hex')?6:3;const start=kind==='square'?-Math.PI*3/4:kind==='hex-flat'?0:kind==='hex-point'?-Math.PI/2:kind==='tri-side'?0:-Math.PI/2;return Array.from({length:n},(_,i)=>[x+r*Math.cos(start+Math.PI*2*i/n),y+r*Math.sin(start+Math.PI*2*i/n)]);}
 let gridView='';
-function cellAt(id,geometry=state.geometry){
- const [i,j,half=0]=id.split(',').map(Number);let p;
- if(geometry==='square')p=[[i,j],[i+1,j],[i+1,j+1],[i,j+1]];
- else if(geometry.startsWith('hex')){const flat=geometry==='hex-flat';p=polygon(geometry,flat?1.5*i:Math.sqrt(3)*(i+j/2),flat?Math.sqrt(3)*(j+i/2):1.5*j,1);}
- else{const x=i+j/2,y=j*Math.sqrt(3)/2,A=[x,y],B=[x+1,y],C=[x+.5,y+Math.sqrt(3)/2],D=[x+1.5,y+Math.sqrt(3)/2];p=half?[D,C,B]:[A,B,C];if(geometry==='tri-side')p=p.map(([a,b])=>[-b,a]);}
- return{id,p,center:p.reduce((a,v)=>[a[0]+v[0]/p.length,a[1]+v[1]/p.length],[0,0]),edges:p.map((v,k)=>key(v,p[(k+1)%p.length]))};
-}
-function lattice([x,y],geometry=state.geometry){
- if(geometry==='square')return[x,y];
- if(geometry==='hex-flat')return[x/1.5,y/Math.sqrt(3)-x/3];
- if(geometry==='hex-point')return[x/Math.sqrt(3)-y/3,y/1.5];
- if(geometry==='tri-side')[x,y]=[y,-x];
- return[x-y/Math.sqrt(3),y*2/Math.sqrt(3)];
-}
 function viewKey(){return[state.geometry,width,height,zoom,pan.x,pan.y].join(':');}
 function rebuild(){
  cells=[];edgeMap=new Map();const seen=new Set();
@@ -43,16 +27,17 @@ const scale=()=>58*zoom;
 const screen=p=>[width/2+pan.x+p[0]*scale(),height/2+pan.y+p[1]*scale()];
 function path(p,target=ctx){target.beginPath();p.forEach((v,i)=>i?target.lineTo(...v):target.moveTo(...v));target.closePath();}
 function paint(c,edges,alpha=1,target=ctx,project=screen,palette=state.palette){const p=c.p.map(project),center=project(c.center);target.globalAlpha=alpha;path(p,target);target.fillStyle=palette[edges[0]];target.fill();for(let i=0;i<p.length;i++){path([center,p[i],p[(i+1)%p.length]],target);target.fillStyle=palette[edges[i]];target.fill();}path(p,target);target.strokeStyle='#111b1699';target.lineWidth=1.5;target.stroke();target.globalAlpha=1;}
-function borderPoints(k){return k.split('|').map(p=>p.split(',').map(v=>Number(v)/1e5));}
+
 function paintBorders(target=ctx,project=screen,borders=board().borders,palette=state.palette){for(const [k,color]of Object.entries(borders)){const [a,b]=borderPoints(k);target.beginPath();target.moveTo(...project(a));target.lineTo(...project(b));target.strokeStyle='#101a15';target.lineWidth=9;target.lineCap='round';target.stroke();target.strokeStyle=color===null?'#ffffff':palette[color];target.lineWidth=5;if(color===null)target.setLineDash([7,5]);target.stroke();if(color===null)target.setLineDash([]);}}
 function conflicts(c,edges){return c.edges.some((k,i)=>{const border=board().borders[k];if(border!==undefined&&border!==null&&border!==edges[i])return true;return edgeMap.get(k).some(({c:other,i:side})=>other.id!==c.id&&board().placed[other.id]&&board().placed[other.id][side]!==edges[i]);});}
 function draw(){refreshGrid();ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);ctx.clearRect(0,0,width,height);ctx.fillStyle='#111b16';ctx.fillRect(0,0,width,height);for(const c of cells){const center=screen(c.center),margin=scale()*1.5;if(center[0]<-margin||center[1]<-margin||center[0]>width+margin||center[1]>height+margin)continue;path(c.p.map(screen));ctx.strokeStyle='#2c3b2e';ctx.lineWidth=.8;ctx.stroke();const t=board().placed[c.id];if(t)paint(c,t);}
 if(hover&&mode==='place'&&tiles()[selected]){const t=tiles()[selected];paint(hover.c,t,.45);if(conflicts(hover.c,t)){path(hover.c.p.map(screen));ctx.strokeStyle='#ff877f';ctx.lineWidth=2;ctx.stroke();}}
 paintBorders();
+if(typeof drawLogicalPartition==='function')drawLogicalPartition();
 if(hover&&mode==='border'){const c=hover.c,i=hover.edge;ctx.beginPath();ctx.moveTo(...screen(c.p[i]));ctx.lineTo(...screen(c.p[(i+1)%c.p.length]));ctx.strokeStyle=borderWildcard?'#ffffff':state.palette[ink];ctx.lineWidth=6;ctx.setLineDash([6,4]);ctx.stroke();ctx.setLineDash([]);}
 drawSelection();
 $('#placedCount').textContent=Object.keys(board().placed).length;$('#zoomValue').textContent=Math.round(zoom*100)+'%';$('#undo').disabled=!history.length;$('#redo').disabled=!future.length;if(typeof solveButtons==='function')solveButtons();}
-function inside(p,poly){let b=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],c=poly[j];if((a[1]>p[1])!==(c[1]>p[1])&&p[0]<(c[0]-a[0])*(p[1]-a[1])/(c[1]-a[1])+a[0])b=!b;}return b;}
+
 function distance(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy)));return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);}
 function hit(e){refreshGrid();const r=canvas.getBoundingClientRect(),p=[(e.clientX-r.left-width/2-pan.x)/scale(),(e.clientY-r.top-height/2-pan.y)/scale()];const c=cells.find(c=>inside(p,c.p));if(!c)return null;let edge=0,d=Infinity;c.p.forEach((a,i)=>{const v=distance(p,a,c.p[(i+1)%c.p.length]);if(v<d){d=v;edge=i;}});return{c,edge,d};}
 function act(h){if(!h)return false;const {c,edge}=h,b=board(),k=c.edges[edge];if(mode==='place'){if(!tiles()[selected]){message('Crea prima una tessera.');return false;}const t=tiles()[selected];if($('#strict').checked&&conflicts(c,t)){message('Questi lati non corrispondono. Scegli un’altra tessera o modifica i colori.');return false;}b.placed[c.id]=[...t];message('Tessera posata. Continua a comporre.');}else if(mode==='border'){const color=borderWildcard?null:ink;if(b.borders[k]===color)delete b.borders[k];else{if(color!==null&&$('#strict').checked&&edgeMap.get(k).some(({c,i})=>b.placed[c.id]&&b.placed[c.id][i]!==ink)){message('Il bordo non corrisponde alla tessera: cambia colore o disattiva Regola Wang.');return false;}b.borders[k]=color;}message('Traccia i lati per chiudere la tua regione. Riclicca un bordo per rimuoverlo.');}else{if(h.d<.15&&b.borders[k]!==undefined)delete b.borders[k];else delete b.placed[c.id];message('Elemento rimosso.');}draw();return true;}

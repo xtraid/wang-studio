@@ -8,3 +8,5 @@
 .transition-panel summary{cursor:pointer;color:var(--accent);font-size:12px}
 .transition-panel label{display:block;margin-top:14px}
 .transition-panel button{width:100%}
+#transitionPreview{width:100%;height:auto;min-height:100px;background:#111b16;border-radius:6px;margin-top:10px}
+.transition-panel button+button{margin-top:6px}
