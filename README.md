@@ -155,6 +155,8 @@ deduplication, MRV indexing, dynamic DFS and trail optimizations.
 python tools/solver_package.py verify
 node tests/test_editor.cjs
 node tests/test_browser.mjs
+# Run the same checks against the deployed site:
+node tests/test_browser.mjs https://xtraid.github.io/wang-studio/
 ```
 
 The real browser test uses Chromium (`CHROMIUM=google-chrome` is also accepted),

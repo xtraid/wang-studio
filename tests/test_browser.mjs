@@ -8,6 +8,8 @@ import {join, resolve, extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
+const liveURL=process.argv[2];
+if(liveURL&&!/^https?:\/\//.test(liveURL))throw Error('Expected an HTTP(S) site URL.');
 const profile=await mkdtemp(join(tmpdir(),'wang-browser-'));
 const apiRequests=[], failures=[];
 const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.wasm':'application/wasm','.json':'application/json','.css':'text/css'};
@@ -56,12 +58,26 @@ try {
     const data=JSON.parse(event.data);
     if(data.id){const waiter=pending.get(data.id);if(waiter){pending.delete(data.id);data.error?waiter.reject(Error(JSON.stringify(data.error))):waiter.resolve(data.result);}}
     else if(data.method==='Runtime.exceptionThrown')failures.push(data.params.exceptionDetails);
+    else if(data.method==='Network.requestWillBeSent'&&new URL(data.params.request.url).pathname.includes('/api/'))apiRequests.push(data.params.request.url);
   };
   call=(method,params={})=>new Promise((resolve,reject)=>{
     const id=++nextId;pending.set(id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));
   });
   await call('Runtime.enable');
-  await call('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/studio/`});
+  await call('Network.enable');
+  await call('Page.navigate',{url:liveURL||`http://127.0.0.1:${server.address().port}/studio/`});
+  if(liveURL){
+    const deadline=Date.now()+20000;
+    let ready=false;
+    while(Date.now()<deadline){
+      const response=await call('Runtime.evaluate',{expression:'document.readyState === "complete" && typeof startRegionSolve === "function"',returnByValue:true});
+      if(response.result.value){ready=true;break;}
+      await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    assert.ok(ready,'Public editor did not finish loading');
+    const scripts=await Promise.all(['browser_flow.js','browser_wasm.js'].map(name=>readFile(join(root,'tests',name),'utf8')));
+    await call('Runtime.evaluate',{expression:scripts.join('\n')+'\nwindow.dispatchEvent(new Event("load"));'});
+  }
   const began=Date.now();let result;
   while(Date.now()-began<45000){
     const response=await call('Runtime.evaluate',{expression:'JSON.stringify({flow:document.querySelector("#browser-test-result")?.textContent,wasm:document.querySelector("#wasm-test-result")?.textContent})',returnByValue:true});
@@ -75,7 +91,7 @@ try {
   assert.deepEqual(apiRequests,[],'Static browser mode must never contact a native API');
   assert.deepEqual(failures,[],'No unhandled browser errors');
   console.log(result.flow);console.log(result.wasm);
-  console.log('PASS: static /studio/ subpath, no COOP/COEP headers and no native API requests.');
+  console.log(liveURL?'PASS: live site '+liveURL+' with no native API requests.':'PASS: static /studio/ subpath, no COOP/COEP headers and no native API requests.');
 } finally {
   if(socket?.readyState===WebSocket.OPEN&&call){
     await Promise.race([call('Browser.close').catch(()=>{}),new Promise(resolve=>setTimeout(resolve,1000))]);
