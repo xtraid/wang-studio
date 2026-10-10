@@ -31,4 +31,24 @@ for(let n=1;n<=100;n++){
 }
 assert.throws(()=>region(0,4,0));assert.throws(()=>api.metrics({n:1,s:5,a:0,boundary:Array(5)}));
 assert.throws(()=>api.metrics({n:1,s:4,a:1,boundary:Array(4)}));
+
+assert.equal(api.withinAreaPercent(square,region(2,4,1),100),true);
+assert.equal(api.withinAreaPercent(square,region(2,4,1),99.99),false);
+assert.equal(api.withinAreaPercent(square,square,0),true);
+assert.equal(api.withinAreaPercent(square,twoTriangles,29.91),true);
+assert.equal(api.withinAreaPercent(square,twoTriangles,29.90),false);
+assert.throws(()=>api.withinAreaPercent(square,square,-1));
+assert.throws(()=>api.withinAreaPercent(square,square,NaN));
+assert.throws(()=>api.withinAreaPercent(square,square,1.001));
+assert.equal(api.comparison(square,region(2,4,1)).relativeAreaError,1);
+
+// Integer bounds agree with exact admissibility in every geometry, including
+// an empty interval, exact equality and irrational near-threshold cases.
+for(const s of [3,4,6])for(let n=1;n<=12;n++)for(const t of [3,4,6])for(const epsilon of [0,1,29.90,29.91,30,100,150]){
+ const from=region(n,s,n-1),bounds=api.cellRange(from,t,epsilon);
+ for(let k=1;k<=bounds.max+2;k++)assert.equal(api.withinAreaPercent(from,region(k,t,k-1),epsilon),k>=bounds.min&&k<=bounds.max);
+}
+assert.equal(api.cellRange(triangle,6,0).max,0);
+assert.equal(api.cellRange(hexagon,3,0).min,2);
+assert.equal(api.cellRange(hexagon,3,0).max,2);
 console.log('PASS: normalized areas, doubled internal faces, exact area/ratio comparisons, Pareto tradeoffs and objective ties.');

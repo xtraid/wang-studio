@@ -18,6 +18,8 @@ window.addEventListener('load',async()=>{
   $('#transitionGeometry').value='hex-flat';$('#transitionSeconds').value='3';$('#transitionRegion').click();
   assert(JSON.stringify(state)===original,'search does not change project');await waitTransition();
   assert(transitionRun.frontier.length>0,'certified Pareto candidates');
+  assert(transitionRun.frontier.every(c=>TransitionObjectives.withinAreaPercent(transitionRun.source.metrics,c.metrics,30)),'all browser results respect area tolerance');
+  assert($('#transitionCandidate').value==='0'&&$('#transitionMetrics').textContent.includes('Scostamento d’area'),'minimum-area default and percentage metrics');
   assert(transitionRun.status==='incomplete','time budget is not impossibility or global optimum');
   const choice=transitionRun.frontier.findIndex(c=>c.region.n===2);assert(choice>=0,'two hexagons found');$('#transitionCandidate').value=String(choice);$('#applyTransition').click();
   assert(state.geometry==='hex-flat'&&Object.keys(board().borders).length===10,'logical interfaces expand from 6 to 10 sides');
@@ -37,9 +39,14 @@ window.addEventListener('load',async()=>{
   for(let i=0;i<40&&!transitionRun.frontier.length;i++)await new Promise(r=>setTimeout(r,50));
   assert(transitionRun.frontier.length>0,'identity candidate before stale edit');state.palette.push('#456789');$('#stopTransition').click();
   const edited=JSON.stringify(state);assert(!applyGeometryTransition(),'stale candidate rejected');assert(JSON.stringify(state)===edited,'stale apply does not overwrite edit');
+  $('#transitionAreaLimit').value='25';$('#transitionAreaLimit').dispatchEvent(new Event('input'));assert(transitionRun===null&&$('#applyTransition').disabled,'changing tolerance invalidates previous results');$('#transitionAreaLimit').value='30';
   setup(2);const impossible=JSON.stringify(state);$('#transitionGeometry').value='hex-flat';$('#transitionRegion').click();await waitTransition();
   assert(transitionRun.status==='unrealizable'&&transitionRun.proof.kind==='interior-face-valence','proved incompatibility is separate from timeout');assert(JSON.stringify(state)===impossible,'impossibility is atomic');
-  checks.push('logical transition Worker / expanded interfaces / new tileset / Pareto / saved partitions / Undo / Redo / Stop / proof of impossibility');
+  setup(1);const areaBefore=JSON.stringify(state);$('#transitionGeometry').value='hex-flat';$('#transitionAreaLimit').value='0';$('#transitionRegion').click();await waitTransition();
+  assert(transitionRun.frontier.length===0&&transitionRun.status==='unrealizable'&&transitionRun.proof.kind==='area-cell-count','strict area budget has an integer-cell impossibility certificate');
+  assert($('#applyTransition').disabled&&JSON.stringify(state)===areaBefore,'area rejection leaves project unchanged');
+  $('#transitionAreaLimit').value='30';
+  checks.push('hard area tolerance / exact size interval / logical transition Worker / expanded interfaces / new tileset / Pareto / saved partitions / Undo / Redo / Stop / proof of impossibility');
   const caps=await solverRequest('/api/capabilities');assert(caps.solver==='optimized'&&caps.enumeration,'enumeration capability');
   let h=setup();$('#solveRegion').click();assert(mode==='solve','first button');await startRegionSolve(h);
   assert(enumerationSession.status==='paused'&&enumerationSession.count==='1','first pauses at solution 1');

@@ -68,7 +68,7 @@ Closing the page stops the search; save your project as JSON to keep your work.
 ## Transition between geometries
 
 Draw one closed region, then open **Transizione geometrica · unità logiche**.
-Choose a destination and search time, and click **Cerca realizzazioni**.
+Choose a destination, area tolerance and search time, and click **Cerca realizzazioni**.
 Initially each source cell is one logical unit. Target units may contain several
 connected cells, while preserving their contacts and cyclic interface order.
 Each logical interface can expand to multiple consecutive atomic sides, all
@@ -76,8 +76,9 @@ carrying its original color. Its identity is retained even next to an interface
 with the same color.
 
 The browser searches without changing the project. Choose a realization from
-the observed **Pareto frontier** using its preview, area error and global ratio
-of internal to external atomic faces. Then click **Applica realizzazione e nuovo
+the observed **Pareto frontier** within a configurable hard area tolerance
+(default 30%). Results are sorted by area error and show the preview, relative
+area error and global ratio of internal to external atomic faces. Then click **Applica realizzazione e nuovo
 tileset**. This constructs an independent atomic tileset, clears the source board
 and replaces the target-family tileset. The destination board must be empty.
 **Undo** restores the previous project, including its tilesets.

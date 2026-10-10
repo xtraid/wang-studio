@@ -13,16 +13,23 @@ The operational choices confirmed for this version are:
 - Every logical interface occupies a positive number of consecutive atomic sides.
 - Logical incidences, cyclic interface order and boundary colors are invariants.
 - Atomic interface lengths, region area and the internal/external face ratio are
-  not invariants. Area error and the face ratio are two separate Pareto objectives.
+  not exact invariants. Relative area error must satisfy the chosen tolerance;
+  area error and the face ratio remain two separate Pareto objectives within it.
 - The target tileset is constructed independently of the source tileset.
 
 ## Use in the editor
 
 Draw one closed region and open **Transizione geometrica · unità logiche**.
-Choose a target geometry and a search time, then select **Cerca realizzazioni**.
+Choose a target geometry, an area tolerance and a search time, then select
+**Cerca realizzazioni**. The default tolerance is **30%**, editable before each
+search; it is a hard constraint, not a weighted penalty.
 The browser searches in a Worker without changing the project. The candidate
 selector contains one representative for each non-dominated objective pair
-found. The preview colors identify logical units, not Wang edge colors.
+found **within the tolerance**, sorted by increasing area error. The first
+result is selected by default; other non-dominated tradeoffs remain available.
+Selection is enabled when the search stops, so streaming updates cannot change
+a user-selected candidate. The preview colors identify logical units, not Wang
+edge colors. The UI shows relative error, normalized source/target areas and eta.
 
 After choosing a candidate, **Applica realizzazione e nuovo tileset** commits
 one undoable operation. The source board is cleared; the target must be empty.
@@ -98,7 +105,46 @@ is not the physical normalization used for comparison.
 Candidate X dominates Y only when X has no larger area error and no smaller eta,
 with at least one strict improvement. There is no weighted sum and no implicit
 lexicographic preference. Equal objective pairs retain one representative;
-this is a frontier of observed objective pairs, not a list of every realization.
+this is a frontier of observed **admissible** objective pairs, not a list of every
+realization. Sorting the display by area error does not change Pareto dominance.
+
+The additional hard admissibility condition is:
+
+```
+delta_A = abs(A(target) - A(source)) / A(source)
+delta_A <= epsilon
+```
+
+The UI expresses epsilon as a percentage with up to two decimal places. For a
+target cell of normalized area `a_t`, this gives the integer interval:
+
+```
+n_min = max(1, ceil(A(source) * (1 - epsilon) / a_t))
+n_max = floor(A(source) * (1 + epsilon) / a_t)
+```
+
+Here epsilon in the formulas is a fraction (30% = 0.30). Endpoint inclusion is
+checked with exact radical arithmetic, rather than trusting floating-point
+ceil/floor near equality. The same exact predicate filters candidates and runs
+again before applying them. An empty integer interval proves infeasibility
+**within this tolerance**, without making a claim about a looser tolerance.
+
+The reference is the **current source region** at each transition, as in the
+pairwise definition above. It is not an implicit fixed reference to the first
+region of a sequence. Thus several individually admissible transitions can
+still accumulate an area drift relative to the initial region. Original lattice
+embeddings are tried again as candidates when available, but are subject to the
+same current-source tolerance and Pareto comparison.
+
+Each unit with `p` logical ports requires at least
+`max(1, ceil((p - 2)/(s - 2)))` target cells: a connected set of `n` cells has
+at most `(s-2)*n+2` exposed sides, and every port needs at least one. Summing this
+bound across units gives a further necessary lower bound. If it exceeds
+`n_max`, the UI reports an explicit area/interface-count certificate.
+For example, nine atomic square units require at least eighteen triangles.
+Their relative area increase is about **29.9038%**: 30% permits that construction,
+whereas 29% cannot. A small tolerance can therefore rule out otherwise valid
+transitions for structural reasons.
 
 Floating-point values are used for display. For comparisons, cell areas have the
 common denominator `16*pi^2` and numerators `3*sqrt(3)`, `8`, `6*sqrt(3)`.
@@ -107,26 +153,51 @@ by integer cross multiplication. Rounding cannot change Pareto dominance.
 
 ## Candidate search and its limits
 
-Two generators run alongside each other:
+The previous search used a few raster phases with scales growing up to 12 times
+linear size, while the lattice enumerator built all smaller shapes before
+reaching useful sizes. Coarse raster samples often lost an interface or added a
+contact; the exhaustive prefix spent its budget before reaching a viable shape.
+Larger valid samples could remain Pareto-optimal because eta improved despite
+their area error. These are separate causes of sparse results and oversized
+choices; changing the certificate would not fix them correctly.
 
-- Geometric samples map target cell centers to source units at several scales
-  and grid phases. This accelerates discovery and is **not** an invariant or a
-  guarantee that a suitable sample exists.
-- A lattice-animal enumerator grows finite connected target cell sets, normalized
-  only by translation. It tries labelled partitions, pruning impossible contacts.
-  Triangular seeds include both fixed cell orientations.
+The revised generators run cooperatively in the Worker:
 
-Every candidate from either generator passes the same certificate. Geometry
-sampling never authorizes an approximate contact, a color change or relaxed
-interface order. A failed sample is discarded without changing the source.
-The former fixed-perimeter strip/chain construction remains only as a geometry
-regression fixture; it no longer implements the editor's transition command.
+- Direct candidates reuse the current lattice for orientation changes, or the
+  original unit embedding when returning to its lattice. Square-origin units can
+  be constructed as two-triangle rhombi: the square grid maps to a triangular
+  lattice parallelogram grid. These candidates still pass the full certificate.
+  For initially atomic square units, this construction attains the port-count
+  lower bound of two triangles per unit; it does not certify a global eta optimum.
+- Raster sampling concentrates scales on the tolerance-derived cell interval
+  and tries six phases. Sampling stops when the number of selected atoms exceeds
+  the permitted maximum. These are discovery heuristics, not completeness claims.
+- The lattice-animal enumerator stops expansion at the permitted maximum size
+  and only searches partitions at admissible sizes. Smaller partial shapes are
+  still needed to construct larger animals; they are not solution candidates.
+  Partition search prunes extra contacts, missing boundary capacity and branches
+  with too few unassigned cells left to meet every unit's port-count minimum.
+- A local descent tries deleting exposed atoms from a certified candidate when
+  doing so strictly improves area error. It stops at the size lower bound and
+  rechecks the full interface certificate after each attempted removal. It cannot
+  cross invalid intermediate configurations and is not a global minimizer.
 
-The unbounded research space is **not** replaced by an artificial maximum region
-size. The browser nevertheless has operational budgets: selectable search time,
-20,000 queued lattice forms and the editor's existing 20,000-cell/segment and
-coordinate limits. Hitting one reports an incomplete search, not an empty
-mathematical realization space. All individual accepted candidates are finite.
+All final candidates pass the same certificate. No generator authorizes an
+approximate contact, a color change or relaxed interface order. A failed proposal
+never changes the source. Direct embeddings which are certified but outside the
+area interval are counted separately and never expanded or added to the frontier.
+Size-pruned raster proposals have not passed the certificate and are not described
+as geometrically valid. Diagnostics distinguish those two exclusion categories
+from admissible realizations and search status.
+
+The finite upper cell count follows from the user's tolerance and area
+normalization. It is **not** an unrelated artificial region-size objective.
+The browser still has operational budgets: selectable search time, 20,000 queued
+lattice forms, and the editor's existing 20,000-cell/segment and coordinate limits.
+Reaching a resource limit reports an incomplete search, not mathematical
+infeasibility. If even the necessary minimum exceeds the editor's capacity, this
+is reported immediately as a resource limitation. Timeout and Stop preserve only
+the observed admissible frontier, and do not claim infeasibility.
 
 The search is combinatorial and can be exponential. The former claim of an
 expected linear-time boundary conversion does not apply to this optimization.
@@ -135,11 +206,13 @@ or decide every possible transition.
 
 ### Distinct outcomes
 
-- **A realization was found:** its incidences, interface order and colors are
-  verified. Pareto comparisons refer only to candidates found in this search.
+- **An admissible realization was found:** its incidences, interface order, colors
+  and hard area tolerance are verified. Pareto comparisons refer only to candidates found in this search.
 - **Search incomplete/interrupted:** time, memory or an editor resource limit was
   reached. An empty frontier is not proof that no realization exists.
-- **Not realizable:** a specific incompatibility certificate was established.
+- **Not realizable:** a specific topological incompatibility certificate, empty
+  integer area interval or incompatible port-count/area bound was established.
+  Area-based certificates refer to the selected tolerance only.
 - **Invalid/unsupported input:** no transition is applied, and the input error is
   shown separately.
 
@@ -195,5 +268,9 @@ that those solver endpoints cannot yet process.
 Checks cover area normalization, doubled internal faces, Pareto tradeoffs and
 ties, expanded same-color interfaces, connected grouped units, extra contacts,
 reversed ports, obstruction proofs, saved partitions and independent tilesets.
+Regressions additionally cover exact percentage endpoints, the integer size
+interval in all geometry pairs, single-cell sources, the 9-square/18-triangle
+case, excluded certified embeddings, sorted filtered Pareto fronts and rejection
+without state mutation.
 Real Chromium tests cover Worker search, timeout/Stop, preview selection, apply,
 Undo/Redo, save/load, successive transitions and the unchanged C solvers.
