@@ -94,6 +94,7 @@ deduplication, MRV indexing, dynamic DFS and trail optimizations.
 ```sh
 python tools/solver_package.py verify
 node tests/test_editor.cjs
+node tests/test_transition.cjs
 node tests/test_browser.mjs
 # Run the same checks against the deployed site:
 node tests/test_browser.mjs https://xtraid.github.io/wang-studio/

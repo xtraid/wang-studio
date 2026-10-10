@@ -10,6 +10,21 @@ window.addEventListener('load',async()=>{
   rebuild();renderUI();draw();pendingEnumerationMode='step';return{c:cellAt('0,0'),edge:0};
  };
  try{
+  state={geometry:'square',palette:['#ffffff','#222222','#123456'],sets:{square:[[0,0,0,0]]},boards:{square:{placed:{},borders:{}}}};
+  ensure();const initial=constructTransitionRegion(12,'square'),word=initial.boundary.map((_,i)=>i===0?2:i%2);
+  board().borders=Object.fromEntries(initial.boundary.map((e,i)=>[e.key,word[i]]));history=[];future=[];
+  for(const target of ['hex-flat','tri-up','square']){
+   $('#transitionGeometry').value=target;$('#transitionRegion').click();
+   assert(state.geometry===target,'transition button selects destination');
+   assert(JSON.stringify(readTransitionRegion(target,board().borders,state.palette).colors)===JSON.stringify(word),'transition preserves exact colors');
+   assert(mode==='border'&&$('#geometry').value===target,'transition refreshes UI');
+  }
+  $('#undo').click();assert(state.geometry==='tri-up','transition Undo');$('#redo').click();assert(state.geometry==='square','transition Redo');
+  assert(exportCanvas('all').width>0,'transformed region PNG');
+  state.boards['hex-flat']={placed:{},borders:{...board().borders}};
+  const unchanged=JSON.stringify(state);$('#transitionGeometry').value='hex-flat';$('#transitionRegion').click();
+  assert(JSON.stringify(state)===unchanged&&$('#status').textContent.includes('occupata'),'occupied destination is rejected');
+  checks.push('boundary transition UI / exact colors / Undo / Redo / PNG / atomic rejection');
   const caps=await solverRequest('/api/capabilities');assert(caps.solver==='optimized'&&caps.enumeration,'enumeration capability');
   let h=setup();$('#solveRegion').click();assert(mode==='solve','first button');await startRegionSolve(h);
   assert(enumerationSession.status==='paused'&&enumerationSession.count==='1','first pauses at solution 1');

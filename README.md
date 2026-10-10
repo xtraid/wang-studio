@@ -20,6 +20,8 @@ boundary conditions, and explore their solutions.
 - Save and load projects as JSON, and export transparent PNG images.
 - Solve square regions with either **C · ottimizzato** or **C · riferimento**.
 - Step through solutions, count them, or stop a running search.
+- Transform a closed region between square, triangular and hexagonal grids,
+  preserving every boundary segment and its position in the cyclic color sequence.
 
 **Solving currently supports square regions.** Triangle and hexagon editing
 and exports are available; their solver support is still to be implemented.
@@ -63,6 +65,29 @@ a paused session expires after 10 minutes. Stop, timeout or expiry releases
 the Worker and retains the last reported lower bound. **Prima** starts again.
 Closing the page stops the search; save your project as JSON to keep your work.
 
+## Transform a region
+
+Draw a single closed boundary on the current grid, then expand **Trasforma una
+regione** below the geometry selector. Choose **Quadrati**, **Triangoli** or
+**Esagoni** and click **Trasforma la regione**. The usual grid selector still
+switches between independent compositions; it does not perform a transition.
+
+The operation moves the contour to a deterministic shape with exactly the same
+number of boundary segments and the same anticlockwise color sequence. Jolly
+sides remain jolly. The source grid is cleared; placed tiles are not transferred.
+The destination must be empty. Its existing tileset remains available, or starts
+empty if none exists. Define the destination tileset separately. **Undo** restores
+the complete previous project state.
+
+All three target geometries support even perimeters from 12 onward. Smaller
+supported perimeters depend on the target: triangles accept any integer from 3,
+squares any even integer from 4, and hexagons also accept 6 and 10. Holes,
+disconnected or non-simple contours are rejected without changing the project.
+
+This operation preserves boundary conditions, not shape, area or tileability.
+See [the mathematical conventions and implementation](GEOMETRY_TRANSITIONS.md)
+for constructions, invariants, complexity and limits.
+
 ## How it connects to Tiling Foundry
 
 Foundry owns the C solvers. Studio consumes their compiled WebAssembly package,
@@ -81,9 +106,6 @@ engine and package provenance; this metadata does not certify a saved solution.
   cell/side adjacency.
 - An editor and tilesets for generalized tiles, with verification that their
   atomic tiling problem has exactly one solution for the specified boundary.
-- Conversion of region boundaries between geometries, preserving closure and
-  adjacency of colored boundary segments. The conversion rules and any shape
-  changes will be documented for research discussion.
 
 These features are planned and are not part of the current solver integration.
 
