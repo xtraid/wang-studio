@@ -31,7 +31,7 @@ jobs:
         run: node tests/test_transition.cjs
       - name: Check normalized objectives
         run: node tests/test_transition_objectives.cjs
-      - name: Check logical transitions
+      - name: Check region transitions
         run: node tests/test_logical_transition.cjs
       - name: Check both C engines in the actual browser
         env:

@@ -20,7 +20,7 @@ boundary conditions, and explore their solutions.
 - Save and load projects as JSON, and export transparent PNG images.
 - Solve square regions with either **C · ottimizzato** or **C · riferimento**.
 - Step through solutions, count them, or stop a running search.
-- Search for geometric realizations preserving logical contacts and ordered
+- Search for geometric realizations preserving distinct ordered exterior
   interfaces, and compare their normalized area error and global contact ratio.
 
 **Solving currently supports square regions.** Triangle and hexagon editing
@@ -67,36 +67,38 @@ Closing the page stops the search; save your project as JSON to keep your work.
 
 ## Transition between geometries
 
-Draw one closed region, then open **Transizione geometrica · unità logiche**.
-Choose a destination, area tolerance and search time, and click **Cerca realizzazioni**.
-Initially each source cell is one logical unit. Target units may contain several
-connected cells, while preserving their contacts and cyclic interface order.
-Each logical interface can expand to multiple consecutive atomic sides, all
-carrying its original color. Its identity is retained even next to an interface
-with the same color.
+Draw one closed region, then open **Transizione geometrica · regione e bordo**.
+Choose the destination, area tolerance (default 30%), independent B/I deviation
+tolerance (default 50%) and search time. Click **Cerca realizzazioni**.
 
-The browser searches without changing the project. Choose a realization from
-the observed **Pareto frontier** within a configurable hard area tolerance
-(default 30%). Results are sorted by area error and show the preview, relative
-area error and global ratio of internal to external atomic faces. Then click **Applica realizzazione e nuovo
-tileset**. This constructs an independent atomic tileset, clears the source board
-and replaces the target-family tileset. The destination board must be empty.
-**Undo** restores the previous project, including its tilesets.
+Transitions preserve the identity, color and cyclic order of exterior interfaces.
+Each interface may occupy multiple consecutive sides. Internal cell counts and
+adjacencies can change. Equal-colored interfaces remain distinct and jolly
+interfaces remain unconstrained.
 
-Saved projects retain the logical partition for later transitions. Use **Ogni
-cella come unità** to reset it explicitly after changing the region. Jolly
-interfaces remain unconstrained throughout their expansion.
+Choose from the observed **Pareto frontier**, minimizing relative area error and
+deviation from the source boundary/internal ratio `rho = B/I`. Internal adjacent
+pairs are counted once. Ratio deviation is `abs(rho_target-rho_source) /
+max(rho_target,rho_source)`. Two infinite ratios have zero deviation; one infinite
+and one finite ratio have 100% deviation. Both tolerances are hard constraints.
+Results are sorted by increasing area error, with other tradeoffs selectable.
 
-An interrupted search is **incomplete**, not proof of impossibility. A result is
-reported as **non realizzabile** only when a specific incompatibility is proved.
-The displayed frontier is relative to candidates found; global optimality is
-not certified. Holes and non-simple contours remain unsupported.
+**Applica realizzazione e nuovo tileset** constructs an independent atomic tileset,
+clears the source board and replaces the target-family tileset. The destination
+must be empty. **Undo** restores the previous project, including tilesets.
+Saved projects retain external interface IDs for subsequent transitions; old
+cell-unit projects contribute only their boundary mapping. After editing a saved
+contour, **Ridefinisci interfacce dal bordo** explicitly resets its interfaces.
 
-Area and contact ratio are optimization objectives, not exact invariants.
-Satisfiability and solution count are not preserved. The current implementation
-builds atomic tilesets; a group of cells is not automatically a generalized tile.
-See [GEOMETRY_TRANSITIONS.md](GEOMETRY_TRANSITIONS.md) for the mathematical
-conventions, certificates, search limits and tileset construction.
+Timeout or Stop means **incomplete**, not impossible. The current impossibility
+certificate is an empty area-derived integer cell interval. No source-cell
+junction or internal adjacency is preserved. Holes and nonsimple boundaries
+remain unsupported; the found frontier is not certified globally optimal.
+
+Satisfiability and solution count are not preserved. The constructed tileset is
+atomic, with no generalized-tile uniqueness claim. See
+[GEOMETRY_TRANSITIONS.md](GEOMETRY_TRANSITIONS.md) for the exact conventions,
+independent certificate, persistence and search limits.
 
 ## How it connects to Tiling Foundry
 

@@ -33,7 +33,7 @@ function conflicts(c,edges){return c.edges.some((k,i)=>{const border=board().bor
 function draw(){refreshGrid();ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);ctx.clearRect(0,0,width,height);ctx.fillStyle='#111b16';ctx.fillRect(0,0,width,height);for(const c of cells){const center=screen(c.center),margin=scale()*1.5;if(center[0]<-margin||center[1]<-margin||center[0]>width+margin||center[1]>height+margin)continue;path(c.p.map(screen));ctx.strokeStyle='#2c3b2e';ctx.lineWidth=.8;ctx.stroke();const t=board().placed[c.id];if(t)paint(c,t);}
 if(hover&&mode==='place'&&tiles()[selected]){const t=tiles()[selected];paint(hover.c,t,.45);if(conflicts(hover.c,t)){path(hover.c.p.map(screen));ctx.strokeStyle='#ff877f';ctx.lineWidth=2;ctx.stroke();}}
 paintBorders();
-if(typeof drawLogicalPartition==='function')drawLogicalPartition();
+
 if(hover&&mode==='border'){const c=hover.c,i=hover.edge;ctx.beginPath();ctx.moveTo(...screen(c.p[i]));ctx.lineTo(...screen(c.p[(i+1)%c.p.length]));ctx.strokeStyle=borderWildcard?'#ffffff':state.palette[ink];ctx.lineWidth=6;ctx.setLineDash([6,4]);ctx.stroke();ctx.setLineDash([]);}
 drawSelection();
 $('#placedCount').textContent=Object.keys(board().placed).length;$('#zoomValue').textContent=Math.round(zoom*100)+'%';$('#undo').disabled=!history.length;$('#redo').disabled=!future.length;if(typeof solveButtons==='function')solveButtons();}

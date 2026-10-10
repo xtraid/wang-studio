@@ -28,19 +28,32 @@ const TransitionObjectives=(()=>{
   const s=region.s,m=integer(region.boundary.length,'Facce esterne');
   if(!n||!m||s*n!==2*a+m)throw Error('Metriche della regione non coerenti.');
   const area=display(areaForm(n,s));
-  return{n,s,adjacencies:a,internalFaces:2*a,externalFaces:m,area,eta:2*a/m};
+  return{n,s,adjacencies:a,externalFaces:m,B:m,I:a,area,rho:a?m/a:null}; // null represents infinity, including in JSON.
  }
  function compareAreaError(source,left,right){return sign(subtract(errorForm(source,left),errorForm(source,right)));}
- function compareEta(left,right){
-  const d=BigInt(left.internalFaces)*BigInt(right.externalFaces)-BigInt(right.internalFaces)*BigInt(left.externalFaces);
-  return d<0n?-1:d>0n?1:0;
+ // Symmetric relative deviation |rho_t-rho_s| / max(rho_t,rho_s).
+ // Infinity/infinity = zero deviation; exactly one infinity = full deviation.
+ function ratioDeviation(source,target){
+  if(!source.I||!target.I)return[source.I===target.I?0n:1n,1n];
+  const a=BigInt(source.B)*BigInt(target.I),b=BigInt(target.B)*BigInt(source.I);
+  return[a>b?a-b:b-a,a>b?a:b];
+ }
+ function compareRatioDeviation(source,left,right){
+  const[a,b]=ratioDeviation(source,left),[c,d]=ratioDeviation(source,right),v=a*d-c*b;
+  return v<0n?-1:v>0n?1:0;
+ }
+ function withinRatioPercent(source,target,percent){
+  const tolerance=toleranceUnits(percent);
+  if(percent>100)throw Error('Soglia del rapporto non valida (0–100%).');
+  const[a,b]=ratioDeviation(source,target);return a*10000n<=b*tolerance;
  }
  function dominates(source,left,right){
-  const area=compareAreaError(source,left,right),eta=compareEta(left,right);
-  return area<=0&&eta>=0&&(area<0||eta>0);
+  const area=compareAreaError(source,left,right),ratio=compareRatioDeviation(source,left,right);
+  return area<=0&&ratio<=0&&(area<0||ratio<0);
  }
  function comparison(source,target){
-  return{relativeAreaError:display(errorForm(source,target))/source.area,areaRatio:target.area/source.area,areaError:display(errorForm(source,target)),idealCells:source.area/display(areaForm(1,target.s)),eta:target.eta};
+  const[a,b]=ratioDeviation(source,target);
+  return{relativeAreaError:display(errorForm(source,target))/source.area,areaRatio:target.area/source.area,areaError:display(errorForm(source,target)),idealCells:source.area/display(areaForm(1,target.s)),rho:target.rho,ratioDeviation:Number(a)/Number(b)};
  }
  // The UI accepts percentages with at most two decimal places. Comparison
  // stays exact, including candidates precisely on the chosen bound.
@@ -67,13 +80,7 @@ const TransitionObjectives=(()=>{
   while(!above(max+1,10000n+e))max++;
   return{min,max};
  }
- function minimumCells(graph,s){
-  if(![3,4,6].includes(s))throw Error('Geometria atomica non valida.');
-  // A connected n-cell unit has at most (s-2)*n+2 exposed sides;
-  // each distinct logical port needs at least one of them.
-  return graph.units.reduce((n,u)=>n+Math.max(1,Math.ceil((u.ports.length-2)/(s-2))),0);
- }
  // Keep ties: distinct realizations can share the same objective pair.
  function frontier(source,candidates){return candidates.filter((candidate,i)=>!candidates.some((other,j)=>i!==j&&dominates(source,other.metrics,candidate.metrics)));}
- return{metrics,comparison,compareAreaError,compareEta,dominates,frontier,withinAreaPercent,minimumCells,cellRange};
+ return{metrics,comparison,compareAreaError,compareRatioDeviation,dominates,frontier,withinAreaPercent,withinRatioPercent,ratioDeviation,cellRange};
 })();

@@ -6,20 +6,20 @@ const triangle=region(1,3,0),square=region(1,4,0),hexagon=region(1,6,0);
 for(const r of [triangle,square,hexagon]){
  const expected=r.s*Math.sin(2*Math.PI/r.s)/(8*Math.PI*Math.PI);
  assert.ok(Math.abs(r.area-expected)<1e-16);
- assert.equal(r.eta,0);
- assert.equal(r.internalFaces+r.externalFaces,r.s*r.n);
+ assert.equal(r.rho,null);
+ assert.equal(2*r.I+r.B,r.s*r.n);
 }
 const twoTriangles=region(2,3,1);
 assert.equal(api.compareAreaError(hexagon,twoTriangles,hexagon),0,'Two triangular cells equal one hexagonal cell in normalized area');
 assert.equal(api.comparison(hexagon,twoTriangles).areaError,0);
 assert.equal(api.comparison(hexagon,triangle).idealCells,2);
 const source=region(4,4,4),strip=region(4,4,3),compact=region(4,4,4),larger=region(6,4,7);
-assert.equal(api.dominates(source,compact,strip),true,'Same area, greater internal/external ratio dominates');
+assert.equal(api.dominates(source,compact,strip),true,'Same area, closer boundary/internal ratio dominates');
 assert.equal(api.dominates(source,strip,compact),false);
-assert.equal(api.dominates(source,compact,larger),false,'Area and contact-ratio tradeoff');
+assert.equal(api.dominates(source,compact,larger),true,'Identity minimizes both deviations');
 assert.equal(api.dominates(source,larger,compact),false);
 const candidates=[{id:'strip',metrics:strip},{id:'compact',metrics:compact},{id:'tie',metrics:compact},{id:'larger',metrics:larger}];
-assert.equal(JSON.stringify(api.frontier(source,candidates).map(c=>c.id)),JSON.stringify(['compact','tie','larger']));
+assert.equal(JSON.stringify(api.frontier(source,candidates).map(c=>c.id)),JSON.stringify(['compact','tie']));
 assert.equal(api.dominates(source,compact,compact),false);
 // Different geometries: compare exact irrational area errors, without epsilon.
 for(let n=1;n<=100;n++){
@@ -51,4 +51,20 @@ for(const s of [3,4,6])for(let n=1;n<=12;n++)for(const t of [3,4,6])for(const ep
 assert.equal(api.cellRange(triangle,6,0).max,0);
 assert.equal(api.cellRange(hexagon,3,0).min,2);
 assert.equal(api.cellRange(hexagon,3,0).max,2);
-console.log('PASS: normalized areas, doubled internal faces, exact area/ratio comparisons, Pareto tradeoffs and objective ties.');
+assert.equal(source.rho,2);
+assert.equal(api.withinRatioPercent(source,strip,39.99),false);
+assert.equal(api.withinRatioPercent(source,strip,40),true);
+assert.equal(api.comparison(source,strip).ratioDeviation,.4);
+assert.equal(api.withinRatioPercent(square,hexagon,0),true);
+assert.equal(api.withinRatioPercent(square,twoTriangles,99.99),false);
+assert.equal(api.withinRatioPercent(square,twoTriangles,100),true);
+assert.equal(api.withinRatioPercent(twoTriangles,square,100),true);
+assert.throws(()=>api.withinRatioPercent(source,source,100.01));
+assert.throws(()=>api.withinRatioPercent(source,source,-1));
+// A genuine tradeoff: same-area strip vs larger shape with closer rho.
+const targetSource=region(4,4,4),sameArea=region(4,4,3),nearRatio=region(5,4,6);
+assert.equal(api.dominates(targetSource,sameArea,nearRatio),false);
+assert.equal(api.dominates(targetSource,nearRatio,sameArea),false);
+// Exact rational comparisons agree with numeric values away from rounding.
+for(const p of [strip,compact,larger,square,hexagon])for(const q of [strip,compact,larger,square,hexagon])assert.equal(api.compareRatioDeviation(source,p,q),Math.sign(api.comparison(source,p).ratioDeviation-api.comparison(source,q).ratioDeviation));
+console.log('PASS: normalized area, exact bounds, B/I, rational symmetric deviation, infinity, hard tolerances and Pareto.');
