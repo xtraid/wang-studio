@@ -77,7 +77,8 @@ const TransitionSearch=(()=>{
   }
  }
  function create(source,target,options={}){
-  const settings={maxAreaPercent:options.maxAreaPercent??30,maxRatioPercent:options.maxRatioPercent??50,...TransitionShape.settings(options)};
+  const settings={maxAreaPercent:options.maxAreaPercent??30,maxRatioPercent:options.maxRatioPercent??50,...TransitionShape.settings(options),...BoundaryTransition.settings(options)};
+  const sourceB=Object.values(BoundaryTransition.sourceLengths(source)).reduce((a,b)=>a+b,0);
   const shapeActive=!!(settings.shapePreference||settings.shapeConstraint),reference=shapeActive?TransitionShape.forSource(source,settings.shapeBandPercent):null;
   TransitionObjectives.withinAreaPercent(source.metrics,source.metrics,settings.maxAreaPercent);
   TransitionObjectives.withinRatioPercent(source.metrics,source.metrics,settings.maxRatioPercent);
@@ -98,8 +99,8 @@ const TransitionSearch=(()=>{
    seen.add(signature);rememberedCells+=value.ids.length;
    state.examined++;
    let region;try{region=regionBoundary(value.ids,target);}catch{state.rejectedGeometry++;return;}
-   if(region.boundary.length<source.interfaces.length||(region.boundary.length>source.interfaces.length&&!source.interfaces.some(item=>item.color===null))){state.rejectedBoundary++;return;}
-   const mapping=BoundaryTransition.correspondence(region,source.interfaces),metrics=TransitionObjectives.metrics(region);
+   if(region.boundary.length<sourceB||(region.boundary.length>sourceB&&(!settings.allowWildcardExpansion||!source.interfaces.some(item=>item.color===null)))){state.rejectedBoundary++;return;}
+   const mapping=BoundaryTransition.correspondence(region,source,settings),metrics=TransitionObjectives.metrics(region);
    if(!TransitionObjectives.withinRatioPercent(source.metrics,metrics,settings.maxRatioPercent)){state.rejectedRatio++;return;}
    let candidate;
    try{candidate={...BoundaryTransition.certificate(value.ids,target,source,settings,mapping),method:value.method};}

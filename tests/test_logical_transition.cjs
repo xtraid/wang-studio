@@ -99,10 +99,58 @@ assert.equal(run('noExpansion.state.frontier.length'),0);
 assert.ok(run('noExpansion.state.rejectedBoundary>0'));
 assert.throws(()=>run("BoundaryTransition.correspondence(regionBoundary(['0,0'],'hex-flat'),solid.interfaces)"),/senza vincolo/);
 
+// Optional expansion uses current atomic run lengths, including legacy runs.
+run(`var sq=regionBoundary(['0,0'],'square'),hx=regionBoundary(['0,0'],'hex-flat');
+ var opts={maxAreaPercent:10000,maxRatioPercent:100};
+ var makeSource=colors=>BoundaryTransition.source('square',Object.fromEntries(sq.boundary.map((e,i)=>[e.key,colors[i]])),['#ffffff']);`);
+for(const colors of [[0,0,0,0],[null,null,null,null],[0,0,null,0]])for(const enabled of [false,true]){
+ run(`var unit=makeSource(${JSON.stringify(colors)}),options={...opts,allowWildcardExpansion:${enabled}};var trial=TransitionSearch.create(unit,'hex-flat',options);trial.step(100);`);
+ run("BoundaryTransition.certificate(sq.ids,'square',unit,options,BoundaryTransition.correspondence(sq,unit,options));");
+ const allowed=enabled&&colors.includes(null);
+ assert.equal(run('trial.state.frontier.length>0'),allowed);
+ if(allowed)run("var expandedMap=BoundaryTransition.correspondence(hx,unit,options);BoundaryTransition.certificate(hx.ids,'hex-flat',unit,options,expandedMap);");
+ else assert.throws(()=>run('BoundaryTransition.correspondence(hx,unit,options)'));
+}
+run(`var unit=makeSource([0,0,null,0]),expandedMap=BoundaryTransition.correspondence(hx,unit);
+ var expandedSource=BoundaryTransition.source('hex-flat',expandedMap.borders,['#ffffff'],{interfaces:unit.interfaces,edgeInterfaces:expandedMap.edgeInterfaces});`);
+assert.equal(run('BoundaryTransition.sourceLengths(expandedSource)[2]'),3);
+assert.equal(run('Object.values(expandedMap.borders).filter(c=>c===null).length'),3);
+assert.throws(()=>run("BoundaryTransition.certificate(hx.ids,'hex-flat',unit,{...opts,allowWildcardExpansion:false},expandedMap)"),/lati esterni/);
+// The old unit-only correspondence would contract the already expanded jolly.
+run('var contracted=BoundaryTransition.correspondence(sq,unit.interfaces);');
+for(const enabled of [false,true])assert.throws(()=>run(`BoundaryTransition.certificate(sq.ids,'square',expandedSource,{...opts,allowWildcardExpansion:${enabled}},contracted)`));
+run(`var chained=TransitionSearch.create(expandedSource,'square',{...opts,allowWildcardExpansion:false});chained.step(500);
+ for(const c of chained.state.frontier){BoundaryTransition.certificate(c.region.ids,'square',expandedSource,chained.state,c);}`);
+assert.ok(run('chained.state.frontier.length>0'));
+assert.ok(run('chained.state.frontier.every(c=>c.metrics.B===6&&Object.values(c.edgeInterfaces).filter(id=>id===2).length===3)'));
+// A jolly run crossing index zero is contiguous on the cycle, in both modes.
+run(`var wrap={edgeInterfaces:{},borders:{}};hx.boundary.forEach((e,i)=>{var k=hx.boundary[(i+3)%6].key;wrap.edgeInterfaces[e.key]=expandedMap.edgeInterfaces[k];wrap.borders[e.key]=expandedMap.borders[k];});`);
+assert.equal(run('wrap.edgeInterfaces[hx.boundary[0].key]'),2);
+assert.equal(run('wrap.edgeInterfaces[hx.boundary.at(-1).key]'),2);
+for(const enabled of [false,true])run(`BoundaryTransition.certificate(hx.ids,'hex-flat',expandedSource,{...opts,allowWildcardExpansion:${enabled}},wrap)`);
+// Inserting even an existing jolly between consecutive colored interfaces splits it.
+run(`var split=JSON.parse(JSON.stringify(expandedMap));var k=hx.boundary[1].key;split.edgeInterfaces[k]=2;split.borders[k]=null;`);
+assert.throws(()=>run("BoundaryTransition.certificate(hx.ids,'hex-flat',unit,opts,split)"),/Ordine/);
+run('split.edgeInterfaces[hx.boundary[1].key]=99;');
+assert.throws(()=>run("BoundaryTransition.certificate(hx.ids,'hex-flat',unit,opts,split)"),/Interfaccia/);
+// Reallocation cannot shrink one jolly while expanding another, even at fixed B.
+run(`var all=makeSource([null,null,null,null]),allMap=BoundaryTransition.correspondence(hx,all);
+ var allExpanded=BoundaryTransition.source('hex-flat',allMap.borders,['#ffffff'],{interfaces:all.interfaces,edgeInterfaces:allMap.edgeInterfaces});
+ var shifted={edgeInterfaces:{},borders:{}};[0,0,1,2,3,3].forEach((id,i)=>{shifted.edgeInterfaces[hx.boundary[i].key]=id;shifted.borders[hx.boundary[i].key]=null;});`);
+for(const enabled of [false,true])assert.throws(()=>run(`BoundaryTransition.certificate(hx.ids,'hex-flat',allExpanded,{...opts,allowWildcardExpansion:${enabled}},shifted)`),/Estensione/);
+// Legacy colored multi-edge runs are preserved at their actual length as well.
+run(`var legacyColors=unit.interfaces.map(i=>({...i,color:0})),legacyBorders=Object.fromEntries(hx.boundary.map(e=>[e.key,0]));
+ var oldSource=BoundaryTransition.source('hex-flat',legacyBorders,['#ffffff'],null,{graph:{boundary:legacyColors},edgeInterfaces:expandedMap.edgeInterfaces});
+ var oldMap=BoundaryTransition.correspondence(hx,oldSource,{allowWildcardExpansion:false});
+ BoundaryTransition.certificate(hx.ids,'hex-flat',oldSource,{...opts,allowWildcardExpansion:false},oldMap);`);
+assert.equal(run('BoundaryTransition.sourceLengths(oldSource)[2]'),3);
+assert.throws(()=>run('BoundaryTransition.sourceLengths({...expandedSource,edgeInterfaces:undefined})'),/mancante/);
+assert.throws(()=>run("BoundaryTransition.settings({allowWildcardExpansion:'false'})"));
+
 // Worker deadline preserves partial state without an impossibility claim.
 source(Array.from({length:16},(_,i)=>`${i%4},${Math.floor(i/4)}`),'square');
 run("var posted=[],ticks=0;var performance={now:()=>++ticks*1000};var self={postMessage:data=>posted.push(data)};var importScripts=()=>{};var setTimeout=()=>{throw Error('Expired worker must not schedule another tick');};");
 run(fs.readFileSync(path.join(__dirname,'../dist/transition-worker.js'),'utf8'));
 run("self.onmessage({data:{source:src,target:'hex-flat',maxAreaPercent:50,maxRatioPercent:50,milliseconds:1}});");
 assert.equal(run('posted[0].status'),'incomplete');assert.match(run('posted[0].reason'),/Tempo/);assert.equal(run('posted[0].proof'),null);
-console.log('PASS: boundary-only certificates, all geometries, small/2x2/4x4 sources, changed cell counts, exact area bounds, ratio tolerance, infinity, migration, cyclic interfaces, independent tilesets and Worker timeout.');
+console.log('PASS: boundary-only certificates, all geometries, small/2x2/4x4 sources, changed cell counts, exact area bounds, ratio tolerance, infinity, migration, cyclic interfaces, optional wildcard expansion, current run lengths, chained transitions, manual mapping rejection, independent tilesets and Worker timeout.');

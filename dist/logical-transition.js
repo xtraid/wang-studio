@@ -1,6 +1,11 @@
 /* Boundary-only model and independent verifier. No cell correspondence or
  * source internal adjacency graph is part of an ordinary transition. */
 const BoundaryTransition=(()=>{
+ function settings(o={}){
+  const allowWildcardExpansion=o.allowWildcardExpansion??true;
+  if(typeof allowWildcardExpansion!=='boolean')throw Error('Espansione dei bordi jolly non valida.');
+  return{allowWildcardExpansion};
+ }
  function validateInterfaces(interfaces){
   if(!Array.isArray(interfaces)||!interfaces.length||interfaces.length>transitionLimit)throw Error('Interfacce esterne non valide.');
   const seen=new Set();
@@ -13,10 +18,11 @@ const BoundaryTransition=(()=>{
  function verifyBoundary(region,interfaces,edgeInterfaces,borders,allowColoredExpansion=false){
   validateInterfaces(interfaces);
   if(!edgeInterfaces||!borders||Object.keys(edgeInterfaces).length!==region.boundary.length||Object.keys(borders).length!==region.boundary.length)throw Error('Copertura del bordo non valida.');
-  const byId=new Map(interfaces.map(i=>[i.id,i])),word=[],colored=new Set();
+  const byId=new Map(interfaces.map(i=>[i.id,i])),word=[],colored=new Set(),lengths=Object.fromEntries(interfaces.map(i=>[i.id,0]));
   for(const e of region.boundary){
    const id=edgeInterfaces[e.key],item=byId.get(id);
    if(!item||!Object.hasOwn(edgeInterfaces,e.key)||!Object.hasOwn(borders,e.key)||borders[e.key]!==item.color)throw Error('Interfaccia o colore del bordo non conservato.');
+   lengths[id]++;
    if(item.color!==null&&!allowColoredExpansion){
     if(colored.has(id))throw Error('Un lato colorato non può essere duplicato.');
     colored.add(id);
@@ -26,24 +32,47 @@ const BoundaryTransition=(()=>{
   if(word.length>1&&word[0]===word.at(-1))word.pop();
   const start=word.indexOf(interfaces[0].id);
   if(start<0||word.length!==interfaces.length||interfaces.some((item,i)=>word[(start+i)%word.length]!==item.id))throw Error('Ordine ciclico, continuità o identità delle interfacce non conservati.');
+  return lengths;
  }
- function correspondence(region,interfaces){
+ // Old callers may supply unit interfaces. Expanded sources must carry their
+ // persistent edge map; never infer lengths from logical interface count.
+ function sourceLengths(source){
+  const interfaces=Array.isArray(source)?source:source.interfaces;
   validateInterfaces(interfaces);
-  if(region.boundary.length<interfaces.length)throw Error('Il bordo non contiene abbastanza lati per tutte le interfacce.');
-  const edgeInterfaces={},borders={},extra=region.boundary.length-interfaces.length;
+  if(!Array.isArray(source)&&source.edgeInterfaces){
+   const colors=new Map(interfaces.map(i=>[i.id,i.color]));
+   const borders=Object.fromEntries(source.region.boundary.map(e=>[e.key,colors.get(source.edgeInterfaces[e.key])]));
+   return verifyBoundary(source.region,interfaces,source.edgeInterfaces,borders,true);
+  }
+  if(!Array.isArray(source)&&source.region.boundary.length!==interfaces.length)throw Error('Mappatura delle interfacce sorgenti espanse mancante.');
+  return Object.fromEntries(interfaces.map(i=>[i.id,1]));
+ }
+ function correspondence(region,source,options={}){
+  const interfaces=Array.isArray(source)?source:source.interfaces,lengths=sourceLengths(source);
+  const {allowWildcardExpansion}=settings(options);
+  validateInterfaces(interfaces);
+  const edgeInterfaces={},borders={},extra=region.boundary.length-Object.values(lengths).reduce((a,b)=>a+b,0);
+  if(extra<0)throw Error('Il bordo non contiene abbastanza lati per tutte le interfacce.');
+  if(extra&&!allowWildcardExpansion)throw Error('Espansione dei bordi jolly disattivata.');
   const wildcards=interfaces.filter(item=>item.color===null).length;
   if(extra&&!wildcards)throw Error('Il bordo aggiuntivo richiede interfacce senza vincolo di colore.');
   let edge=0,wildcard=0;
   for(const item of interfaces){
    // Only unconstrained interfaces may absorb additional atomic sides.
-   const length=1+(item.color===null?Math.floor(++wildcard*extra/wildcards)-Math.floor((wildcard-1)*extra/wildcards):0);
+   const length=lengths[item.id]+(item.color===null?Math.floor(++wildcard*extra/wildcards)-Math.floor((wildcard-1)*extra/wildcards):0);
    for(let i=0;i<length;i++){const e=region.boundary[edge++];edgeInterfaces[e.key]=item.id;borders[e.key]=item.color;}
   }
   return{edgeInterfaces,borders};
  }
  function certificate(ids,g,source,options,mapping){
   const region=regionBoundary(ids,g),metrics=TransitionObjectives.metrics(region);
-  verifyBoundary(region,source.interfaces,mapping?.edgeInterfaces,mapping?.borders);
+  const lengths=verifyBoundary(region,source.interfaces,mapping?.edgeInterfaces,mapping?.borders,true),base=sourceLengths(source);
+  const {allowWildcardExpansion}=settings(options);
+  if(region.boundary.length<source.region.boundary.length||(!allowWildcardExpansion&&region.boundary.length!==source.region.boundary.length))throw Error('Numero di lati esterni non ammissibile.');
+  for(const item of source.interfaces){
+   const current=base[item.id],target=lengths[item.id];
+   if(target<current||((item.color!==null||!allowWildcardExpansion)&&target!==current))throw Error('Estensione di interfaccia non conservata: un tratto non può essere contratto o duplicato.');
+  }
   if(!TransitionObjectives.withinAreaPercent(source.metrics,metrics,options.maxAreaPercent))throw Error('La realizzazione supera la tolleranza d’area.');
   if(!TransitionObjectives.withinRatioPercent(source.metrics,metrics,options.maxRatioPercent))throw Error('La realizzazione supera la tolleranza del rapporto B/I.');
   let shapeError;
@@ -66,7 +95,8 @@ const BoundaryTransition=(()=>{
   if(model){try{verifyBoundary(region,interfaces,model.edgeInterfaces,borders,true);}catch(error){throw Error(error.message+' Usa «Ridefinisci interfacce dal bordo» dopo aver modificato il contorno.');}}
   validateInterfaces(interfaces);
   if(interfaces.some(i=>i.color!==null&&i.color>=palette.length))throw Error('Colore di interfaccia non valido.');
-  return{geometry:g,region,interfaces:interfaces.map(({id,color})=>({id,color})),metrics:TransitionObjectives.metrics(region)};
+  const edgeInterfaces=model?{...model.edgeInterfaces}:Object.fromEntries(region.boundary.map((e,i)=>[e.key,interfaces[i].id]));
+  return{geometry:g,region,interfaces:interfaces.map(({id,color})=>({id,color})),edgeInterfaces,metrics:TransitionObjectives.metrics(region)};
  }
  function newTileset(proof,g,palette){
   if(!palette.length)throw Error('Palette vuota.');
@@ -78,5 +108,5 @@ const BoundaryTransition=(()=>{
   }
   return tiles;
  }
- return{source,correspondence,verifyBoundary,certificate,newTileset};
+ return{settings,sourceLengths,source,correspondence,verifyBoundary,certificate,newTileset};
 })();

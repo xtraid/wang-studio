@@ -26,6 +26,45 @@ boundary conditions, and explore their solutions.
 Both C engines support all five geometry variants, including stepping through
 solutions and exact counting.
 
+## Generalized tilesets
+
+The **Atomico** and **Generalizzato** tabs select separate solver inputs.
+Atomico uses only ordinary editable tiles. Generalizzato uses only the generated
+atoms of enabled generalized tiles in the current geometry. Their atoms are
+stored with their parent in the project catalog and shown read-only; they are
+not appended to the ordinary editable tileset. No implicit mixed mode is used.
+
+To create a generalized tile, draw a simple closed boundary with no wildcards,
+select its entire contour with **Seleziona regione**, open **Generalizzato**, choose
+a name and base color, and click **Crea generalizzata dalla selezione**. The outer
+colors remain unchanged. Each internal adjacency gets a private color, shared by
+its two incident sides, sampled along a continuous shade ramp from the base color.
+Already occupied display colors are skipped. Cells are visited by geometric rows,
+top to bottom and right to left; within each cell the existing side order is used.
+Similar-looking shades still have distinct symbolic IDs, shown in the atom list.
+
+An independent bounded enumeration verifies exactly one tiling of the empty
+source region using only that generalized tile's atoms, without fixed placements,
+rotations or reflections. An inconclusive check does not save the tile. JSON
+imports revalidate the encoding and uniqueness instead of trusting a saved badge.
+Uniqueness is individual, not a promise about arbitrary regions or combinations
+of several generalized tiles. Identical atomic edge tuples count once.
+
+Creation leaves the current drawing and ordinary tileset unchanged. Mode,
+enable/disable, creation and deletion support Undo/Redo and JSON persistence;
+older projects default to Atomico with an empty generalized catalog. Switching
+mode or changing the active catalog invalidates solver continuation. Remove
+foreign fixed tiles from the target region before solving in Generalizzato.
+
+Current limits: 32 cells per generalized tile, 100 catalog entries, 128 palette
+colors per project. A solver request still allows only 32 distinct active atomic
+types and 16 used colors, including boundary constraints. The catalog shows the
+active totals; excesses are rejected, never silently truncated. Generated colors
+and existing board placements are retained when deleting a catalog entry, to
+avoid changing existing drawings. Applying a geometric transition activates its
+new atomic tileset by switching to Atomico. Saved generalized tiles and their
+unique internal encodings remain unchanged; Undo restores the previous mode too.
+
 ## Solve your first region
 
 1. [Open Wang Studio](https://xtraid.github.io/wang-studio/).
@@ -74,8 +113,15 @@ Choose the destination, area tolerance (default 30%), independent B/I deviation
 tolerance (default 50%) and search time. Click **Cerca realizzazioni**.
 
 Transitions preserve the identity, color and cyclic order of exterior interfaces.
-Each colored interface occupies exactly one side; only unconstrained (jolly)
-interfaces may expand over multiple consecutive sides. Internal cell counts and
+Each colored interface keeps its current number of atomic sides; only unconstrained (jolly)
+interfaces may expand over multiple consecutive sides. **Consenti espansione dei bordi jolly**
+is enabled by default. When disabled, both the total number of exterior sides `B`
+and the current length of every interface must stay unchanged. When enabled,
+`B` may increase, with additional sides assigned only to existing jolly interfaces;
+already expanded runs can never contract. Without jollies, `B` stays unchanged
+in either mode. This counts atomic sides, not Euclidean perimeter length.
+The option is saved in JSON (older projects default to enabled), supports Undo/Redo,
+and changing it stops the search and invalidates its results. Internal cell counts and
 adjacencies can change. Equal-colored interfaces remain distinct and jolly
 interfaces remain unconstrained.
 

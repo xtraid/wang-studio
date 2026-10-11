@@ -99,6 +99,7 @@ node tests/test_transition.cjs
 node tests/test_transition_objectives.cjs
 node tests/test_transition_shape.cjs
 node tests/test_logical_transition.cjs
+node tests/test_generalized.cjs
 node tests/test_browser.mjs
 # Run the same checks against the deployed site:
 node tests/test_browser.mjs https://xtraid.github.io/wang-studio/

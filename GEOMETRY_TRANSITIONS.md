@@ -11,8 +11,8 @@ removed, together with partition enumeration.
 ## Invariants and region properties
 
 Each original exterior interface retains its identity, color and cyclic position.
-A colored interface occupies exactly one destination boundary edge; only a
-`null` interface may occupy a nonempty consecutive run of multiple edges. No
+A colored interface retains its current number of boundary edges; only a
+`null` interface may expand its consecutive run of edges. No
 interface can disappear, split, reverse order or be introduced. Initially each
 exposed source edge is a distinct interface. Equal colors do **not** merge IDs;
 `null` remains a jolly (unconstrained) condition on every edge in its expansion.
@@ -25,9 +25,31 @@ visual resemblance, cell correspondence or exact perimeter length is required.
 Contours use the existing deterministic leftmost/uppermost start and visually
 anticlockwise orientation (canvas y points down). Cyclic verification permits
 changing the starting point but not reversal. The deterministic correspondence
-assigns one edge to each interface and distributes surplus edges evenly among
-the `null` interfaces, preserving cyclic order. A longer target perimeter without
-any `null` interface is rejected. Colored sides are never duplicated.
+starts from each interface's current atomic side count and distributes surplus
+edges deterministically among the existing `null` interfaces, preserving cyclic
+order. A larger target boundary without any `null` interface is rejected.
+
+**Consenti espansione dei bordi jolly** (`allowWildcardExpansion`) defaults to
+`true` and is an independent admissibility constraint. Let `B_source` and
+`B_target` count actual exterior atomic sides, and `l_i`, `l'_i` count the current
+and destination sides of persistent interface `i`:
+
+- Disabled: `B_target = B_source` and `l'_i = l_i` for every interface.
+- Enabled: `B_target >= B_source`; colored interfaces require `l'_i = l_i`,
+  jolly interfaces require `l'_i >= l_i`.
+
+Without jollies, both modes require equal `B`. Every interface remains one
+consecutive cyclic run, including runs crossing the representation's start.
+No new jolly can appear between colored interfaces, and no expanded run can
+contract or transfer sides to another interface. These counts impose no new
+Euclidean perimeter constraint across geometries. Area, B/I, continuous shape,
+normalization, Pareto comparison and atomic tileset semantics are unchanged.
+
+The generator filters using actual source `B`. Current lengths are reconstructed
+from the persistent `edgeInterfaces` mapping, never from the number of IDs.
+The independent certificate checks coverage, colors, cyclic continuity, total
+`B` and each individual run length on the supplied correspondence. Apply repeats
+the certificate before changing the project.
 
 ## Area: hard admissibility constraint
 
@@ -176,15 +198,25 @@ Both orientations of a family share its tileset, as elsewhere in the editor.
 
 - `interfaces`: ordered distinct IDs and colors;
 - `edgeInterfaces`: the interface on each exterior atomic edge;
-- `transition`: version 7, shape settings and integral interval, tolerances, metric convention, normalized source/target
+- `transition`: version 8, expansion flag, shape settings and integral interval, tolerances, metric convention, normalized source/target
   metrics, generation method and incomplete-search provenance.
 
 There are no saved source-cell units or internal contacts. Save/load and Undo/Redo
 retain the external identities, including through multiple transitions. Loading
 an old `board.logical` is supported: only `graph.boundary` and `edgeInterfaces`
 are read. Old `graph.units`, `cellUnits` and `contacts` impose no constraints.
-Older expanded colored mappings can still be read; new results enforce one edge
-per colored interface. The next Apply writes the new boundary-only format.
+Older expanded colored mappings can still be read; their actual lengths are
+preserved exactly, just like other colored interfaces. Legacy unit-only source
+objects are accepted only when every interface accounts for one boundary side;
+an expanded source without its mapping is rejected explicitly. Saved models with
+missing or inconsistent mappings require **Ridefinisci interfacce dal bordo**.
+The next Apply writes the new boundary-only format.
+
+`transitionSettings.allowWildcardExpansion` is persisted with the project;
+missing settings or a missing flag default to `true`. The checkbox supports
+Undo/Redo. Changing it terminates the active Worker, clears previous results and
+ignores late messages; loading or restoring changed settings also invalidates
+stale results. Other transition settings retain their existing semantics.
 
 If contour/color edits invalidate the saved external mapping, the next search
 reports the inconsistency. **Ridefinisci interfacce dal bordo** explicitly makes
@@ -372,7 +404,7 @@ region overlay, not an additional rasterization or heatmap used by the metric.
 
 `state.transitionSettings` stores all four shape controls. Changes are undoable;
 JSON validation checks types, ranges and precision. Old projects without settings
-load with both modes off. Apply records version 7, the controls, the recomputed
+load with both shape modes off. Apply records version 8, the controls, the recomputed
 shape interval and `centroid-translation-only` alignment in transition provenance.
 Apply remains a single undoable region/tileset replacement. Undo/Redo restores
 both settings and board provenance. No new internal-adjacency or tileset logical

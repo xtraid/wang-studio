@@ -8,10 +8,12 @@ function solverProvenance(){
  return{package:engine.name,version:engine.version,api_version:engine.api_version,
   solver:session.payload.solver||'optimized',source:engine.source,build:engine.build};
 }
-function solverStamp(){return JSON.stringify({geometry:state.geometry,palette:state.palette,tiles:tiles(),board:board(),solver:$('#solverEngine').value||'optimized'});}
+function solverTiles(){return state.tilesetMode==='generalized'?GeneralizedTiles.active(state,state.geometry):tiles();}
+function solverStamp(){return JSON.stringify({geometry:state.geometry,palette:state.palette,tiles:solverTiles(),tilesetMode:state.tilesetMode??'atomic',board:board(),solver:$('#solverEngine').value||'optimized'});}
 function closedRegion(seed){
  if(!seed)throw Error('Clicca una cella interna alla regione chiusa.');
- if(!tiles().length||tiles().length>32)throw Error('Il solver richiede da 1 a 32 tessere nel tileset.');
+ const activeTiles=solverTiles();
+ if(!activeTiles.length||activeTiles.length>32)throw Error('Il solver richiede da 1 a 32 tipi atomici attivi. Abilita o disabilita le generalizzate, oppure modifica il tileset atomico.');
  const geometry=state.geometry,keys=Object.keys(board().borders);
  if(!keys.length)throw Error('Disegna prima un contorno chiuso con lo strumento Bordi.');
  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
@@ -33,7 +35,10 @@ function closedRegion(seed){
   });
   return{id,required,fixed:board().placed[id]?[...board().placed[id]]:null};
  });
- return{geometry,palette:[...state.palette],tiles:clone(tiles()),cells,timeout_seconds:30,solver:$('#solverEngine').value||'optimized'};
+ if(state.tilesetMode==='generalized'&&cells.some(c=>c.fixed&&!activeTiles.some(t=>t.every((v,i)=>v===c.fixed[i]))))throw Error('La regione contiene tessere estranee al tileset attivo. Rimuovi le tessere posate prima di risolvere con questa modalità.');
+ const usedColors=new Set([...activeTiles.flat(),...cells.flatMap(c=>c.required.filter(v=>v!==null))]);
+ if(usedColors.size>16)throw Error('Il solver supporta al massimo 16 colori usati nella ricerca. Disabilita alcune generalizzate o scegli una regione più semplice.');
+ return{geometry,palette:[...state.palette],tiles:clone(activeTiles),cells,timeout_seconds:30,solver:$('#solverEngine').value||'optimized'};
 }
 function sessionIsCurrent(){return !!enumerationSession&&enumerationSession.expectedStamp===solverStamp();}
 function solveButtons(){

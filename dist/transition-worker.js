@@ -1,4 +1,4 @@
-importScripts(...['geometry.js','transition.js','transition-objectives.js','transition-shape.js','logical-transition.js','transition-search.js'].map(name=>name+'?v=continuous-1'));
+importScripts(...['geometry.js','transition.js','transition-objectives.js','transition-shape.js','logical-transition.js','transition-search.js'].map(name=>name+'?v=wildcard-1'));
 self.onmessage=({data})=>{
  try{
   const search=TransitionSearch.create(data.source,data.target,data),start=performance.now();let last=0;

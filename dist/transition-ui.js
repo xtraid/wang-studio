@@ -19,7 +19,7 @@ function beginGeometryTransition(){
   if(!ratioLimit.checkValidity()||ratioLimit.value.trim()==='')throw Error('Specifica la tolleranza del rapporto (0–100%, massimo due decimali).');
   maxRatioPercent=Number(ratioLimit.value);
   for(const id of ['transitionShapeBand','transitionShapeLimit'])if(!$('#'+id).checkValidity()||$('#'+id).value.trim()==='')throw Error('Specifica percentuali di forma valide (0–10000%, due decimali).');
-  shape=TransitionShape.settings({shapePreference:$('#transitionShapePreference').checked,shapeConstraint:$('#transitionShapeConstraint').checked,shapeBandPercent:Number($('#transitionShapeBand').value),maxShapePercent:Number($('#transitionShapeLimit').value)});
+  shape={allowWildcardExpansion:$('#transitionWildcardExpansion').checked,...TransitionShape.settings({shapePreference:$('#transitionShapePreference').checked,shapeConstraint:$('#transitionShapeConstraint').checked,shapeBandPercent:Number($('#transitionShapeBand').value),maxShapePercent:Number($('#transitionShapeLimit').value)})};
   target=$('#transitionGeometry').value;transitionGeometry(target);
   const existing=state.boards[target];
   if(target!==state.geometry&&existing&&(Object.keys(existing.placed).length||Object.keys(existing.borders).length))throw Error('La griglia di destinazione è occupata.');
@@ -28,7 +28,7 @@ function beginGeometryTransition(){
  const run={source,target,maxAreaPercent,maxRatioPercent,...shape,stamp:transitionStamp(),frontier:[],status:'running',reason:'',examined:0,accepted:0,elapsed:0};transitionRun=run;
  const seconds=Number($('#transitionSeconds').value)||3,milliseconds=Math.max(1000,Math.min(30000,seconds*1000));
  try{
-  run.worker=new Worker(new URL('transition-worker.js?v=continuous-1',document.baseURI));
+  run.worker=new Worker(new URL('transition-worker.js?v=wildcard-1',document.baseURI));
   run.worker.onmessage=({data})=>{
    if(transitionRun!==run||run.status!=='running')return;
    Object.assign(run,data);
@@ -75,9 +75,9 @@ function applyGeometryTransition(){
   const proof=BoundaryTransition.certificate(candidate.region.ids,run.target,run.source,run,candidate);
   if(!TransitionObjectives.withinAreaPercent(run.source.metrics,proof.metrics,run.maxAreaPercent))throw Error('La realizzazione supera la soglia d’area richiesta.');
   const tileset=BoundaryTransition.newTileset(proof,run.target,state.palette),next=clone(state),source=state.geometry;
-  next.transitionSettings=TransitionShape.settings(run);next.geometry=run.target;next.boards[source]={placed:{},borders:{}};
-  next.boards[run.target]={placed:{},borders:proof.borders,boundaryModel:{interfaces:clone(run.source.interfaces),edgeInterfaces:proof.edgeInterfaces,transition:{version:7,...TransitionShape.settings(run),shapeError:proof.shapeError??null,shapeAlignment:'centroid-translation-only',maxAreaPercent:run.maxAreaPercent,maxRatioPercent:run.maxRatioPercent,ratioDeviation:'symmetric-relative-infinity-extended',areaReference:'current-source-region',interfacePolicy:'single-colored-edge-wildcard-expansion',normalization:'circumradius-1',sourceGeometry:run.source.geometry,sourceMetrics:run.source.metrics,targetMetrics:proof.metrics,method:candidate.method,searchStatus:run.status,examined:run.examined,accepted:run.accepted,work:run.work,elapsedMilliseconds:run.elapsed,tilesetPolicy:'atomic-boundary-and-interior-color-0',globalOptimumCertified:false}}};
-  next.sets[run.target.split('-')[0]]=tileset;next.solverEngine=null;
+  next.transitionSettings={...TransitionShape.settings(run),...BoundaryTransition.settings(run)};next.geometry=run.target;next.boards[source]={placed:{},borders:{}};
+  next.boards[run.target]={placed:{},borders:proof.borders,boundaryModel:{interfaces:clone(run.source.interfaces),edgeInterfaces:proof.edgeInterfaces,transition:{version:8,...TransitionShape.settings(run),...BoundaryTransition.settings(run),shapeError:proof.shapeError??null,shapeAlignment:'centroid-translation-only',maxAreaPercent:run.maxAreaPercent,maxRatioPercent:run.maxRatioPercent,ratioDeviation:'symmetric-relative-infinity-extended',areaReference:'current-source-region',interfacePolicy:'current-lengths-optional-wildcard-expansion',normalization:'circumradius-1',sourceGeometry:run.source.geometry,sourceMetrics:run.source.metrics,targetMetrics:proof.metrics,method:candidate.method,searchStatus:run.status,examined:run.examined,accepted:run.accepted,work:run.work,elapsedMilliseconds:run.elapsed,tilesetPolicy:'atomic-boundary-and-interior-color-0',globalOptimumCertified:false}}};
+  next.sets[run.target.split('-')[0]]=tileset;next.tilesetMode='atomic';next.solverEngine=null;
   let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
   for(const e of proof.region.boundary){const[x,y]=vertexNumbers(e.from).map(n=>n/1e5);x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}
   snapshot();state=next;selected=0;hover=null;zoom=Math.max(.35,Math.min(1,(width-60)/(58*(x1-x0)),(height-60)/(58*(y1-y0))));pan={x:-(x0+x1)*scale()/2,y:-(y0+y1)*scale()/2};
@@ -94,16 +94,18 @@ $('#resetBoundaryInterfaces').onclick=()=>{stopTransition();if(board().boundaryM
 window.addEventListener('pagehide',()=>stopTransition(),{once:true});
 
 function syncTransitionSettings(){
+ if(transitionRun&&transitionRun.stamp!==transitionStamp()){stopTransition();clearTransitionResults();}
  const settings=TransitionShape.settings(state.transitionSettings);
+ $('#transitionWildcardExpansion').checked=BoundaryTransition.settings(state.transitionSettings).allowWildcardExpansion;
  $('#transitionShapePreference').checked=settings.shapePreference;$('#transitionShapeConstraint').checked=settings.shapeConstraint;
  $('#transitionShapeBand').value=String(settings.shapeBandPercent);$('#transitionShapeLimit').value=String(settings.maxShapePercent);
 }
-for(const id of ['transitionShapePreference','transitionShapeConstraint','transitionShapeBand','transitionShapeLimit'])$('#'+id).onchange=()=>{
+for(const id of ['transitionWildcardExpansion','transitionShapePreference','transitionShapeConstraint','transitionShapeBand','transitionShapeLimit'])$('#'+id).onchange=()=>{
  stopTransition();clearTransitionResults();
  try{
-  const settings=TransitionShape.settings({shapePreference:$('#transitionShapePreference').checked,shapeConstraint:$('#transitionShapeConstraint').checked,shapeBandPercent:Number($('#transitionShapeBand').value),maxShapePercent:Number($('#transitionShapeLimit').value)});
+  const settings={allowWildcardExpansion:$('#transitionWildcardExpansion').checked,...TransitionShape.settings({shapePreference:$('#transitionShapePreference').checked,shapeConstraint:$('#transitionShapeConstraint').checked,shapeBandPercent:Number($('#transitionShapeBand').value),maxShapePercent:Number($('#transitionShapeLimit').value)})};
   if(['transitionShapeBand','transitionShapeLimit'].some(id=>!$('#'+id).checkValidity()||!$('#'+id).value.trim()))throw Error('Percentuali di forma non valide.');
-  snapshot();state.transitionSettings=settings;$('#transitionStatus').textContent='Preferenze di forma aggiornate: avvia una nuova ricerca.';
+  snapshot();state.transitionSettings=settings;$('#transitionStatus').textContent='Preferenze di transizione aggiornate: avvia una nuova ricerca.';
  }catch(error){message(error.message);}
 };
 for(const id of ['transitionShapeBand','transitionShapeLimit'])$('#'+id).oninput=()=>{stopTransition();clearTransitionResults();};
