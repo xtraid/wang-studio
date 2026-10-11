@@ -31,10 +31,10 @@ any `null` interface is rejected. Colored sides are never duplicated.
 
 ## Area: hard admissibility constraint
 
-The circumcircle of each regular atomic polygon has **circumference 1**:
+Each regular atomic polygon has **circumradius 1**:
 
 ```
-a_s = s * sin(2*pi/s) / (8*pi^2)
+a_s = s * sin(2*pi/s) / 2
 A(R) = n * a_s
 n_ideal = A(source) / a_target
 delta_A = abs(A(target) - A(source)) / A(source)
@@ -49,7 +49,7 @@ integer interval are generated. Smaller partial sets can be built as constructio
 prefixes, but are never submitted as candidates. An empty interval is a proved
 impossibility **within the selected area tolerance**.
 
-Areas have common denominator `16*pi^2` and numerators `3*sqrt(3)`, `8`, and
+Areas have common denominator `4` and numerators `3*sqrt(3)`, `8`, and
 `6*sqrt(3)` for triangles, squares and hexagons. BigInt arithmetic in Q(sqrt(3))
 checks interval endpoints, area admissibility and area-error ordering exactly.
 Floating-point values are used for initial endpoint estimates and display only;
@@ -176,7 +176,7 @@ Both orientations of a family share its tileset, as elsewhere in the editor.
 
 - `interfaces`: ordered distinct IDs and colors;
 - `edgeInterfaces`: the interface on each exterior atomic edge;
-- `transition`: version 6, shape settings and integral interval, tolerances, metric convention, normalized source/target
+- `transition`: version 7, shape settings and integral interval, tolerances, metric convention, normalized source/target
   metrics, generation method and incomplete-search provenance.
 
 There are no saved source-cell units or internal contacts. Save/load and Undo/Redo
@@ -228,7 +228,7 @@ It uses the original floating-point vertices from `cellAt`, not the rounded
 never the source shape. Concavities therefore remain in the reference.
 
 Canvas circumradii are `1/sqrt(2)` for squares, `1/sqrt(3)` for triangles and `1`
-for hexagons. Every coordinate is multiplied by `1/(2*pi*canvasCircumradius)`.
+for hexagons. Every coordinate is multiplied by `1/canvasCircumradius`.
 The resulting polygon areas agree with the existing mathematical areas, including
 across families. Each region's geometric area centroid is translated to the
 origin. Atoms in a region have equal area, so their centroid average is exactly
@@ -372,7 +372,7 @@ region overlay, not an additional rasterization or heatmap used by the metric.
 
 `state.transitionSettings` stores all four shape controls. Changes are undoable;
 JSON validation checks types, ranges and precision. Old projects without settings
-load with both modes off. Apply records version 6, the controls, the recomputed
+load with both modes off. Apply records version 7, the controls, the recomputed
 shape interval and `centroid-translation-only` alignment in transition provenance.
 Apply remains a single undoable region/tileset replacement. Undo/Redo restores
 both settings and board provenance. No new internal-adjacency or tileset logical

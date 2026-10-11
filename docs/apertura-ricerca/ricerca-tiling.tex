@@ -280,9 +280,9 @@ Le interfacce conservano identità, ordine ciclico e colore. Nella convenzione s
 
 \subsection{Normalizzazione dell'area e rapporto di contatto}
 
-Assumiamo che le celle atomiche siano inscritte in una circonferenza di lunghezza unitaria. L'area di una cella di geometria $s$ è
+Assumiamo che le celle atomiche abbiano circumraggio unitario. L'area di una cella di geometria $s$ è
 \[
-a_s=\frac{s}{8\pi^2}\sin\left(\frac{2\pi}{s}\right),
+a_s=\frac{s}{2}\sin\left(\frac{2\pi}{s}\right),
 \qquad A(R)=|R|a_s.
 \]
 La normalizzazione è una scelta del modello, indipendente dalla scala del disegno nell'editor. Per una destinazione di geometria $s'$, il numero ideale di celle è
@@ -328,9 +328,9 @@ Un intervallo vuoto esclude ogni realizzazione entro la tolleranza scelta.
 
 Area e rapporto di contatto non descrivono da soli la disposizione della regione nel piano. Una regione a C e una regione allungata possono avere la stessa area e lo stesso rapporto $B/I$, pur occupando porzioni del piano molto diverse. Si vuole introdurre una quantità che renda osservabile questa differenza, lasciando a ciascuna geometria la possibilità di esprimersi senza riprodurre esattamente il contorno sorgente.
 
-Usiamo come riferimento l'unione continua $A_R=\bigcup_{v\in R}Q_v$, già introdotta nella definizione dell'ambiente geometrico. Tutti i poligoni sono ora espressi nella normalizzazione del circumcerchio di circonferenza $1$. Se una rappresentazione grafica usa circumraggio $r_s^{\mathrm{graf}}$, le sue coordinate devono essere moltiplicate per
+Usiamo come riferimento l'unione continua $A_R=\bigcup_{v\in R}Q_v$, già introdotta nella definizione dell'ambiente geometrico. Tutti i poligoni sono ora espressi nella normalizzazione del circumraggio unitario. Se una rappresentazione grafica usa circumraggio $r_s^{\mathrm{graf}}$, le sue coordinate devono essere moltiplicate per
 \[
-\frac{1}{2\pi r_s^{\mathrm{graf}}}.
+\frac{1}{r_s^{\mathrm{graf}}}.
 \]
 In Wang Studio i circumraggi grafici sono rispettivamente $1/\sqrt{3}$, $1/\sqrt{2}$ e $1$ per triangoli, quadrati ed esagoni. Il confronto avviene quindi in uno spazio euclideo comune, coerente con le aree $A(R)$ e $A(S)$, e non nelle coordinate grezze del canvas.
 
@@ -638,9 +638,9 @@ La ricerca originaria esamina $48$ insiemi distinti e ammette $23$ candidati, ma
 \begin{tabular}{lrrrr}
 Realizzazione & $\delta_A$ & $\delta_\rho$ & $\widehat E_\sigma$ & $[L,U]$ \\
 \hline
-(a) Non guidata, 10 celle & $0{,}074\%$ & $2{,}04\%$ & $138{,}46\%$ & $[132{,}80;144{,}11]\%$ \\
-(b) Guidata, 10 celle & $0{,}074\%$ & $41{,}67\%$ & $37{,}12\%$ & $[33{,}92;40{,}33]\%$ \\
-(c) Guidata, 12 celle & $19{,}91\%$ & $41{,}67\%$ & $25{,}70\%$ & $[22{,}53;28{,}86]\%$
+(a) Non guidata, 10 celle & $0{,}074\%$ & $2{,}04\%$ & $138{,}47\%$ & $[132{,}81;144{,}14]\%$ \\
+(b) Guidata, 10 celle & $0{,}074\%$ & $41{,}67\%$ & $37{,}10\%$ & $[33{,}90;40{,}31]\%$ \\
+(c) Guidata, 12 celle & $19{,}91\%$ & $41{,}67\%$ & $25{,}68\%$ & $[22{,}51;28{,}85]\%$
 \end{tabular}
 \end{center}
 

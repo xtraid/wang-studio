@@ -43,7 +43,7 @@
         "externalFaces": 8,
         "B": 8,
         "I": 4,
-        "area": 0.20264236728467555,
+        "area": 8,
         "rho": 2
       }
     },
@@ -90,7 +90,7 @@
         "externalFaces": 8,
         "B": 8,
         "I": 4,
-        "area": 0.20264236728467555,
+        "area": 8,
         "rho": 2
       }
     },
@@ -137,7 +137,7 @@
         "externalFaces": 8,
         "B": 8,
         "I": 2,
-        "area": 0.15198177546350666,
+        "area": 6,
         "rho": 4
       }
     },
@@ -194,7 +194,7 @@
         "externalFaces": 18,
         "B": 18,
         "I": 19,
-        "area": 0.7092482854963644,
+        "area": 28,
         "rho": 0.9473684210526315
       }
     },
@@ -375,13 +375,19 @@
                 "-100000,519615|-50000,433013": 17
               },
               "transition": {
-                "version": 5,
+                "version": 7,
+                "shapePreference": false,
+                "shapeConstraint": false,
+                "shapeBandPercent": 10,
+                "maxShapePercent": 30,
+                "shapeError": null,
+                "shapeAlignment": "centroid-translation-only",
                 "maxAreaPercent": 30,
                 "maxRatioPercent": 50,
                 "ratioDeviation": "symmetric-relative-infinity-extended",
                 "areaReference": "current-source-region",
                 "interfacePolicy": "single-colored-edge-wildcard-expansion",
-                "normalization": "circumcircle-circumference-1",
+                "normalization": "circumradius-1",
                 "sourceGeometry": "square",
                 "sourceMetrics": {
                   "n": 14,
@@ -390,7 +396,7 @@
                   "externalFaces": 18,
                   "B": 18,
                   "I": 19,
-                  "area": 0.7092482854963644,
+                  "area": 28,
                   "rho": 0.9473684210526315
                 },
                 "targetMetrics": {
@@ -400,20 +406,26 @@
                   "externalFaces": 26,
                   "B": 26,
                   "I": 20,
-                  "area": 0.7239104315501258,
+                  "area": 28.578838324886473,
                   "rho": 1.3
                 },
                 "method": "deterministic-growth",
                 "searchStatus": "incomplete",
-                "examined": 854,
-                "accepted": 34,
-                "work": 131660,
-                "elapsedMilliseconds": 3001.7000000029802,
+                "examined": 1433,
+                "accepted": 35,
+                "work": 147540,
+                "elapsedMilliseconds": 3005.10000000149,
                 "tilesetPolicy": "atomic-boundary-and-interior-color-0",
                 "globalOptimumCertified": false
               }
             }
           }
+        },
+        "transitionSettings": {
+          "shapePreference": false,
+          "shapeConstraint": false,
+          "shapeBandPercent": 10,
+          "maxShapePercent": 30
         },
         "solverEngine": null
       },
@@ -424,7 +436,7 @@
         "externalFaces": 26,
         "B": 26,
         "I": 20,
-        "area": 0.7239104315501258,
+        "area": 28.578838324886473,
         "rho": 1.3
       }
     }
@@ -437,7 +449,7 @@
       "externalFaces": 18,
       "B": 18,
       "I": 19,
-      "area": 0.7092482854963644,
+      "area": 28,
       "rho": 0.9473684210526315
     },
     "target": {
@@ -447,12 +459,12 @@
       "externalFaces": 26,
       "B": 26,
       "I": 20,
-      "area": 0.7239104315501258,
+      "area": 28.578838324886473,
       "rho": 1.3
     },
     "relativeAreaError": 0.02067279731737402,
     "areaRatio": 1.020672797317374,
-    "areaError": 0.014662146053761366,
+    "areaError": 0.5788383248864726,
     "idealCells": 10.777205024873014,
     "rho": 1.3,
     "ratioDeviation": 0.27125506072874495,

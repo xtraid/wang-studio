@@ -62,7 +62,7 @@ window.addEventListener('load',async()=>{
   $('#stopTransition').click();assert(transitionRun.frontier.length>0&&transitionRun.frontier[0].shapeError.upper===0,'zero-band zero-threshold identity certified by Worker');
   assert($('#transitionMetrics').textContent.includes('Errore geometrico')&&$('#transitionPreview').querySelector('path'),'shape bounds and continuous overlay visible');
   const shapeBefore=JSON.stringify(state);assert(applyGeometryTransition(),'shape candidate applies');const shapeApplied=JSON.stringify(state);
-  assert(board().boundaryModel.transition.shapeError.upper===0&&board().boundaryModel.transition.version===6,'shape certificate persisted');
+  assert(board().boundaryModel.transition.shapeError.upper===0&&board().boundaryModel.transition.version===7&&board().boundaryModel.transition.normalization==='circumradius-1','shape certificate persisted');
   undo();assert(JSON.stringify(state)===shapeBefore,'shape apply Undo');undo(true);assert(JSON.stringify(state)===shapeApplied,'shape apply Redo');
   state=validate({version:1,...clone(state)});ensure();renderUI();assert(state.transitionSettings.shapeBandPercent===0&&$('#transitionShapeConstraint').checked,'shape settings JSON round trip');
   let invalidShape=false;try{validate({version:1,...clone(state),transitionSettings:{maxShapePercent:-1}});}catch{invalidShape=true;}assert(invalidShape,'invalid persisted shape setting rejected');

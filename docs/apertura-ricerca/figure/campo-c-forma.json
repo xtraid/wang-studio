@@ -247,16 +247,16 @@
           "-100000,346410|-50000,259808": 27
         },
         "transition": {
-          "version": 6,
+          "version": 7,
           "shapePreference": true,
           "shapeConstraint": false,
           "shapeBandPercent": 10,
           "maxShapePercent": 30,
           "shapeError": {
-            "value": 0.3185850796251054,
-            "lower": 0.11132541274100442,
-            "upper": 0.5258447465092064,
-            "uncertainty": 0.207259666884101,
+            "value": 0.3178736873910346,
+            "lower": 0.11127298913033715,
+            "upper": 0.5244743856517321,
+            "uncertainty": 0.2066006982606975,
             "boxes": 2045,
             "converged": false
           },
@@ -266,7 +266,7 @@
           "ratioDeviation": "symmetric-relative-infinity-extended",
           "areaReference": "current-source-region",
           "interfacePolicy": "single-colored-edge-wildcard-expansion",
-          "normalization": "circumcircle-circumference-1",
+          "normalization": "circumradius-1",
           "sourceGeometry": "square",
           "sourceMetrics": {
             "n": 13,
@@ -275,7 +275,7 @@
             "externalFaces": 28,
             "B": 28,
             "I": 12,
-            "area": 0.6585876936751955,
+            "area": 26,
             "rho": 2.3333333333333335
           },
           "targetMetrics": {
@@ -285,7 +285,7 @@
             "externalFaces": 48,
             "B": 48,
             "I": 12,
-            "area": 0.7897204707819554,
+            "area": 31.17691453623979,
             "rho": 4
           },
           "method": "continuous-field-growth",

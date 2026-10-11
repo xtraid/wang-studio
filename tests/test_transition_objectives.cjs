@@ -4,7 +4,7 @@ const api=vm.runInContext('TransitionObjectives',sandbox);
 const region=(n,s,a)=>api.metrics({n,s,a,boundary:Array(s*n-2*a)});
 const triangle=region(1,3,0),square=region(1,4,0),hexagon=region(1,6,0);
 for(const r of [triangle,square,hexagon]){
- const expected=r.s*Math.sin(2*Math.PI/r.s)/(8*Math.PI*Math.PI);
+ const expected=r.s*Math.sin(2*Math.PI/r.s)/2;
  assert.ok(Math.abs(r.area-expected)<1e-16);
  assert.equal(r.rho,null);
  assert.equal(2*r.I+r.B,r.s*r.n);

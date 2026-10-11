@@ -9,7 +9,9 @@ const TransitionShape=(()=>{
   return result;
  }
  const enabled=o=>o.shapePreference||o.shapeConstraint;
- const scale=g=>1/(2*Math.PI*(g==='square'?Math.SQRT1_2:g.startsWith('tri')?1/Math.sqrt(3):1));
+ // Canvas circumradii are 1/sqrt(3), 1/sqrt(2), and 1.  This maps every
+ // atomic polygon to the common convention of circumradius 1.
+ const scale=g=>1/(g==='square'?Math.SQRT1_2:g.startsWith('tri')?1/Math.sqrt(3):1);
  function region(ids,g){
   const factor=scale(g),origin=cellAt(ids[0],g).center;
   // Subtract an anchor before summation to avoid cancellation far from canvas origin.
@@ -20,7 +22,7 @@ const TransitionShape=(()=>{
   for(const c of cells){polygons.push(c.p.map(project));c.edges.forEach((k,i)=>{if(edges.has(k))edges.delete(k);else edges.set(k,[project(c.p[i]),project(c.p[(i+1)%c.p.length])]);});}
   const segments=[...edges.values()],box=[Infinity,Infinity,-Infinity,-Infinity];
   for(const segment of segments)for(const [x,y]of segment){box[0]=Math.min(box[0],x);box[1]=Math.min(box[1],y);box[2]=Math.max(box[2],x);box[3]=Math.max(box[3],y);}
-  const s=cells[0].p.length,area=ids.length*s*Math.sin(2*Math.PI/s)/(8*Math.PI*Math.PI);
+  const s=cells[0].p.length,area=ids.length*s*Math.sin(2*Math.PI/s)/2;
   return{polygons,segments,box,area,geometry:g,ids:[...ids],factor};
  }
  function distance(r,[x,y]){

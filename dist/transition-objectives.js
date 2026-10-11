@@ -1,5 +1,5 @@
 /* Research on Tiling Complexity, section 1.2.4.
- * Areas use circumcircle circumference 1, independently of canvas scale.
+ * Areas use circumradius 1, independently of canvas scale.
  * Exact comparisons take place in Q(sqrt(3)); floats are display values only.
  */
 const TransitionObjectives=(()=>{
@@ -7,7 +7,7 @@ const TransitionObjectives=(()=>{
  function areaForm(n,s){
   integer(n,'Numero di celle');
   if(![3,4,6].includes(s))throw Error('Geometria atomica non valida.');
-  // Common positive denominator 16*pi^2.
+  // Common positive denominator 4.
   return s===4?[8n*BigInt(n),0n]:[0n,BigInt(s)*BigInt(n)];
  }
  function sign([a,b]){
@@ -22,7 +22,7 @@ const TransitionObjectives=(()=>{
   const difference=subtract(areaForm(source.n,source.s),areaForm(target.n,target.s));
   return sign(difference)<0?difference.map(v=>-v):difference;
  }
- const display=form=>(Number(form[0])+Number(form[1])*Math.sqrt(3))/(16*Math.PI*Math.PI);
+ const display=form=>(Number(form[0])+Number(form[1])*Math.sqrt(3))/4;
  function metrics(region){
   const n=integer(region.n,'Numero di celle'),a=integer(region.a,'Adiacenze interne');
   const s=region.s,m=integer(region.boundary.length,'Facce esterne');

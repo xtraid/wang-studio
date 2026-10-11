@@ -215,7 +215,7 @@
           "-100000,519615|-50000,433013": 27
         },
         "transition": {
-          "version": 6,
+          "version": 7,
           "shapePreference": false,
           "shapeConstraint": false,
           "shapeBandPercent": 10,
@@ -227,7 +227,7 @@
           "ratioDeviation": "symmetric-relative-infinity-extended",
           "areaReference": "current-source-region",
           "interfacePolicy": "single-colored-edge-wildcard-expansion",
-          "normalization": "circumcircle-circumference-1",
+          "normalization": "circumradius-1",
           "sourceGeometry": "square",
           "sourceMetrics": {
             "n": 13,
@@ -236,7 +236,7 @@
             "externalFaces": 28,
             "B": 28,
             "I": 12,
-            "area": 0.6585876936751955,
+            "area": 26,
             "rho": 2.3333333333333335
           },
           "targetMetrics": {
@@ -246,7 +246,7 @@
             "externalFaces": 32,
             "B": 32,
             "I": 14,
-            "area": 0.6581003923182962,
+            "area": 25.980762113533157,
             "rho": 2.2857142857142856
           },
           "method": "deterministic-growth",
