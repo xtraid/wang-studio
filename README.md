@@ -18,18 +18,18 @@ boundary conditions, and explore their solutions.
   requiring a boundary color.
 - Place fixed tiles, select, copy/paste and undo edits.
 - Save and load projects as JSON, and export transparent PNG images.
-- Solve square regions with either **C · ottimizzato** or **C · riferimento**.
+- Solve square, triangular and hexagonal regions with either **C · ottimizzato** or **C · riferimento**.
 - Step through solutions, count them, or stop a running search.
 - Search for geometric realizations preserving distinct ordered exterior
   interfaces, and compare their normalized area error and global contact ratio.
 
-**Solving currently supports square regions.** Triangle and hexagon editing
-and exports are available; their solver support is still to be implemented.
+Both C engines support all five geometry variants, including stepping through
+solutions and exact counting.
 
 ## Solve your first region
 
 1. [Open Wang Studio](https://xtraid.github.io/wang-studio/).
-2. Select **Quadrati** and create your tileset.
+2. Select a geometry and create your tileset.
 3. Use **Bordi** to draw a closed contour. Choose boundary colors, or use
    **Bordo jolly** for unconstrained boundary sides.
 4. Optionally place fixed tiles inside the contour.
@@ -55,9 +55,11 @@ precision loss. Counting retains a published snapshot, not every solution.
 ### Current limits
 
 The solver accepts 1–32 tiles, up to 16 used palette entries, 4096 active cells,
-and a bounding rectangle of at most 16384 cells. Unused palette entries do not
+and, for square grids, a bounding rectangle of at most 16384 cells. Unused palette entries do not
 count toward the color limit. Tile orientations are fixed; square edges use
-`(N,E,S,W)` order.
+`(N,E,S,W)` order. Triangular and hexagonal edges follow the editor’s polygon
+order. The core uses explicit cell/side adjacency for these geometries and
+shares domain propagation, MRV, trail and DFS with the square solver.
 
 Search runs in a dedicated browser Worker with a 30-second deadline per active
 search segment. Waiting between solutions does not consume that deadline;
@@ -114,12 +116,10 @@ engine and package provenance; this metadata does not certify a saved solution.
 
 ## Planned research features
 
-- Solver support for triangular and hexagonal geometries through explicit
-  cell/side adjacency.
 - An editor and tilesets for generalized tiles, with verification that their
   atomic tiling problem has exactly one solution for the specified boundary.
 
-These features are planned and are not part of the current solver integration.
+Generalized tiles are planned and are not part of the current solver integration.
 
 ## Development
 

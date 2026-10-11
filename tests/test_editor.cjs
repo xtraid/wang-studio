@@ -76,3 +76,20 @@ run('delete board().borders[cellAt("0,0").edges[2]]');
 assert.throws(()=>run('closedRegion(cellAt("0,0"))'),/aperto/);
 assert.throws(()=>run('board().borders[cellAt("0,0").edges[2]]="wildcard";validate({version:1,...clone(state)})'),/Bordo/);
 console.log('PASS: wildcard border UI, all geometries, placement, copy/paste, serialization, transparent PNG, mixed solver boundaries, adjacency and open-contour detection.');
+
+for(const geo of ['tri-up','tri-side','hex-flat','hex-point']) {
+ run(`state.geometry='${geo}';ensure();board().placed={};board().borders={};`);
+ run(`(()=>{const c=cellAt(family()==='tri'?'0,0,0':'0,0');const n=cellAt([...cellNeighbors(c,state.geometry).values()][0]);const shared=c.edges.find(k=>n.edges.includes(k));for(const cell of [c,n])for(const k of cell.edges)if(k!==shared)board().borders[k]=null;})()`);
+ const seed=geo.startsWith('tri')?'0,0,0':'0,0';
+ assert.equal(run(`closedRegion(cellAt('${seed}')).cells.length`),2,geo+' closed pair');
+ run(`board().placed['${seed}']=Array(count()).fill(0)`);
+ assert.equal(run(`closedRegion(cellAt('${seed}')).cells.find(c=>c.id==='${seed}').fixed.length`),geo.startsWith('tri')?3:6);
+ run(`delete board().borders[Object.keys(board().borders)[0]]`);
+ assert.throws(()=>run(`closedRegion(cellAt('${seed}'))`),/aperto/,geo+' open boundary');
+ run(`board().placed={};board().borders={};cellAt('${seed}').edges.forEach(k=>board().borders[k]=null)`);
+ run(`(()=>{const c=cellAt('${seed}'),k=c.edges[0],n=cellNeighbors(c,state.geometry).get(k);board().placed[n]=Array(count()).fill(1);})()`);
+ assert.equal(run(`closedRegion(cellAt('${seed}')).cells[0].required[0]`),1,geo+' exterior constraint');
+ run(`board().borders[cellAt('${seed}').edges[0]]=0`);
+ assert.throws(()=>run(`closedRegion(cellAt('${seed}'))`),/esterna/,geo+' exterior mismatch');
+}
+console.log('PASS: triangular and hexagonal solver extraction, open contours, fixed tiles and exterior constraints.');

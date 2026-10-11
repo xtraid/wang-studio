@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "package": "@tiling-foundry/solver-web",
-  "version": "0.1.0",
-  "source": "https://github.com/xtraid/tiling-foundry/releases/download/solver-web-v0.1.0/tiling-foundry-solver-web-0.1.0.tar.gz",
-  "archive_sha256": "d0f1d3f186a2838ef7bd5eb7bc30c6fb7cacb1faeb205acdf66b54e812988b52",
-  "manifest_sha256": "30c5a7bbeb3ec8140e71ddc07ab7ed0e07bab5783833be48d2309bd3a0f0a1f9"
+  "version": "0.1.0-dev.e74e7f2776b9",
+  "source": "local:tiling-foundry-solver-web-0.1.0-dev.e74e7f2776b9.tar.gz",
+  "archive_sha256": "d1d4f214954ced729d1a26461c9bbac564df40c171996022955cb01a1735eddf",
+  "manifest_sha256": "1fe57c0460aace134c32f189f348b8eeb0a2c5268ba7a895a3d5dcfda219625c"
 }

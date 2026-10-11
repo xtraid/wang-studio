@@ -42,15 +42,6 @@ function nearbyCells(point,g){
  return result;
 }
 function edgeOwners(k,g){const[a,b]=borderPoints(k);return nearbyCells([(a[0]+b[0])/2,(a[1]+b[1])/2],g).filter(c=>c.edges.includes(k));}
-function cellNeighbors(c,g){
- const[i,j]=c.id.split(',').map(Number),neighbors=new Map();
- for(let y=j-1;y<=j+1;y++)for(let x=i-1;x<=i+1;x++)for(let h=0;h<(g.startsWith('tri')?2:1);h++){
-  const id=g.startsWith('tri')?`${x},${y},${h}`:`${x},${y}`;if(id===c.id)continue;
-  const other=cellAt(id,g);for(const k of other.edges)if(c.edges.includes(k))neighbors.set(k,other.id);
- }
- if(neighbors.size!==c.edges.length)throw Error('Adiacenze geometriche non coerenti.');
- return neighbors;
-}
 function regionBoundary(ids,g){
  transitionGeometry(g);
  if(!ids.length||ids.length>transitionLimit||new Set(ids).size!==ids.length)throw Error('Regione vuota, duplicata o troppo grande.');

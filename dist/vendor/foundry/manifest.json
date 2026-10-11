@@ -1,6 +1,6 @@
 {
   "name": "@tiling-foundry/solver-web",
-  "version": "0.1.0",
+  "version": "0.1.0-dev.e74e7f2776b9",
   "api_version": 1,
   "solvers": [
     "optimized",
@@ -8,13 +8,17 @@
   ],
   "runtime": "wasm",
   "geometries": [
-    "square"
+    "square",
+    "tri-up",
+    "tri-side",
+    "hex-flat",
+    "hex-point"
   ],
   "source": {
     "repository": "https://github.com/xtraid/tiling-foundry",
-    "revision": "df24fca413751369c957489123048ce944f98c9e",
-    "dirty": false,
-    "sha256": "f91b3c662947a78ad1229207361ac772fe39d96abd02c9e9475cec8e79dea892",
+    "revision": "96c6e708aa0d13e0cf91106a86c952efd8757d9d",
+    "dirty": true,
+    "sha256": "e74e7f2776b9811ce463117de68546c82088f482b03d061d573c5ac20879d7a8",
     "files": {
       "LICENSE": "c79137e2368783c00ad8be274368fea3e774df35178a6cda3ca92529a69ea480",
       "include/wang/formula.h": "3a2d00364aa9de9b45bd38d1fa045b0d9a51624a4810f3c586861fe263358303",
@@ -22,19 +26,19 @@
       "include/wang/permutation.h": "1707a80ffbe3ec062efd58f1bdcd6296ca90c3a785dfeb3b10e75d0a867f2a2d",
       "include/wang/reduction_explanation.h": "fdf66aaa5ba74299f18b2d1feb257b6d7542afc3ea4c931efc72646317566ff8",
       "include/wang/region.h": "1d166db3978444844dae7b416ea6e2d2a80ef35585e27f2bb78f859e8c172232",
-      "include/wang/solver.h": "e5e1e028ed1537d5dddf129545abd1f28af0116e868d50069650275c5f8263b0",
+      "include/wang/solver.h": "a9f6645e8b361eb752c4e948d279e0e1f2196daa851687351b0913d1bbdb8326",
       "include/wang/solver_trace.h": "09f95b2f415b19b0776b2a97fa2e88edf6c6c031c2b2df587d0fa8050f9b5fb5",
       "include/wang/task_plan.h": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "include/wang/tile.h": "ac9182acd2a092c2e4ee6d2f74c1e0e0b131292852e5baf37d37daaba62f69b8",
       "include/wang/verify.h": "1bfc5e8127a28b138e92f57912b76b7361e7467786a510ec9557fcfaec8e770d",
       "include/wang/yang_zhang.h": "5db04ad833c46507dfc97ea433e625c4890192ae1a0437f51fb13e1826057127",
       "include/wang/yang_zhang_witness.h": "cc4ec6e2ab6c4af3ef807501dc6bbda8c3727d18a048c70bdc465917669d7937",
-      "packages/solver-web/README.md": "28a5b082b8778b2f874b74b5068dc56b85a3a8aed74204f4636701bd3bf4df2e",
-      "packages/solver-web/bridge.c": "6ec25352e0e4c63390af688a615442483b1f4800ef34fa391b1aac515235cde3",
-      "packages/solver-web/client.mjs": "84bdf442b23980612a4bd817619c9cd4913058a1ac0d5514dfdadf736e5d27c1",
+      "packages/solver-web/README.md": "1a8a34bc5a928fac114b83aaa707c68b8917e42af6db3c446d44b4e5e5816c00",
+      "packages/solver-web/bridge.c": "9f853b62f45f40c4155f87e8bebe32fa1a7cdf6a00fe67cd60b83bb3bbccedbe",
+      "packages/solver-web/client.mjs": "937d0b7d7130b14135952bb887f1ad47acd2c76cb4f0738191fcc2f12033946a",
       "packages/solver-web/package.json": "db9fd4acdac443c980cf725aa1d1fbfcbd28b95604992f11f4ffbaaa00273b8e",
-      "packages/solver-web/prepare.mjs": "6530f062fb2ddf72f0feaad1f446323c4e8d0b7e9fecd5c658641807e7306af2",
-      "packages/solver-web/worker.mjs": "636dc403d31b2af8d584f80e1652ba943b3354d1217cf68502039339caab6e1d",
+      "packages/solver-web/prepare.mjs": "ea7f6c22cc32811e0264159b0796adfe009faaa1dde4ad9d032841e7d08a6596",
+      "packages/solver-web/worker.mjs": "8c3025ad686872326892a2ace507966a49cba4395384f4ef73afa3eb7208de2a",
       "src/core/region.c": "60691b0fd03cb3da493f8371028f26afa52981126be6748507935449c7548274",
       "src/core/tile.c": "3bbba6b996af9cd9e3918de11242e728842315b428341b286ac8e3fc2b400dbe",
       "src/solver/byte_support_table.c": "96efaacf7959ca110238add4f6e34fa2502ba3520e95bf31dfa6f754ae949290",
@@ -43,9 +47,9 @@
       "src/solver/failed_leaf_trace.h": "0d258b76b77f2bbefb200b3648c68b52699cc7dcd48efd5aeedc2d0e37a678b1",
       "src/solver/solver_event_trace.c": "2f8cb7cdecbaa12b6dfdaa2eec8b7c2aebae743a002aa72b651f91122f7f9eb5",
       "src/solver/solver_event_trace.h": "62ddf23754854bcaad9b0cb4b74e605f4e3d913be866b6f87a027ac3e35aa160",
-      "src/solver/solver_serial.c": "7004c4d01c290921c3b0c899a6ebac5635a335ee87da81f8b2a1ac8b3d4073b2",
+      "src/solver/solver_serial.c": "70719ac76b9c38a8ce0138aac8ead7d2a147534e0573238c0b66b287c0c00733",
       "src/verify/verify_tiling.c": "7a8b2f9ff7d946b706beb9dd3e6db9a5dc17b270e6a76183894d98048deffb3b",
-      "tools/build_solver_web.py": "330521b58a3713dee938566c45645580447f373fe5562320faa132463d855d0a"
+      "tools/build_solver_web.py": "69b9d57f53105d3c47097af78f6b1fd9869eb36a9d3574feeb4135e5fd804da4"
     }
   },
   "build": {
@@ -67,7 +71,7 @@
       "-sMAXIMUM_MEMORY=268435456",
       "-sSTACK_SIZE=1048576",
       "-sFILESYSTEM=0",
-      "-sEXPORTED_FUNCTIONS=[\"_foundry_enumerate\",\"_malloc\",\"_free\"]",
+      "-sEXPORTED_FUNCTIONS=[\"_foundry_enumerate\",\"_foundry_enumerate_graph\",\"_malloc\",\"_free\"]",
       "-sEXPORTED_RUNTIME_METHODS=[\"ccall\",\"HEAPU8\",\"HEAPU32\"]"
     ]
   },
@@ -79,36 +83,36 @@
   },
   "files": {
     "foundry.mjs": {
-      "sha256": "2d84b6837d363cf150bf851eb849439d93b878d0b49bc4ad610d6147892e954d",
-      "size": 17379
+      "sha256": "2b253ca02ef0840a6ea725855e9578cf6451051f790f0d74f2de6a1cf0ea1820",
+      "size": 17481
     },
     "foundry.wasm": {
-      "sha256": "7a7b7480dd4eefe37c4b13facc520aa4ab123c9c304b3f16888dbbc29a0eb27a",
-      "size": 30564
+      "sha256": "83bcc42861636c12f60460be47ed894b317417057d1aaefaa0a59d197ccdc117",
+      "size": 32231
     },
     "client.mjs": {
-      "sha256": "84bdf442b23980612a4bd817619c9cd4913058a1ac0d5514dfdadf736e5d27c1",
+      "sha256": "937d0b7d7130b14135952bb887f1ad47acd2c76cb4f0738191fcc2f12033946a",
       "size": 4415
     },
     "worker.mjs": {
-      "sha256": "636dc403d31b2af8d584f80e1652ba943b3354d1217cf68502039339caab6e1d",
-      "size": 3419
+      "sha256": "8c3025ad686872326892a2ace507966a49cba4395384f4ef73afa3eb7208de2a",
+      "size": 3756
     },
     "prepare.mjs": {
-      "sha256": "6530f062fb2ddf72f0feaad1f446323c4e8d0b7e9fecd5c658641807e7306af2",
-      "size": 4912
+      "sha256": "ea7f6c22cc32811e0264159b0796adfe009faaa1dde4ad9d032841e7d08a6596",
+      "size": 6345
     },
     "README.md": {
-      "sha256": "28a5b082b8778b2f874b74b5068dc56b85a3a8aed74204f4636701bd3bf4df2e",
-      "size": 4032
+      "sha256": "1a8a34bc5a928fac114b83aaa707c68b8917e42af6db3c446d44b4e5e5816c00",
+      "size": 4488
     },
     "LICENSE": {
       "sha256": "c79137e2368783c00ad8be274368fea3e774df35178a6cda3ca92529a69ea480",
       "size": 1074
     },
     "package.json": {
-      "sha256": "db9fd4acdac443c980cf725aa1d1fbfcbd28b95604992f11f4ffbaaa00273b8e",
-      "size": 238
+      "sha256": "8b05de804ec115af4f14d96f44866a8f9375f50b0c0ec10523470b9bcd4e89cc",
+      "size": 255
     }
   }
 }

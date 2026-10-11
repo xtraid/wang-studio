@@ -30,6 +30,28 @@ window.addEventListener('load',async()=>{
    solver.resume(id,'count');result=await wait(id);assert(result.exact&&result.count==='2'&&result.solver===engine,engine+' exhaustion');
   }
   checks.push('both C engines / pause / next / exact count');
+  for(const geometry of ['tri-up','tri-side','hex-flat','hex-point'])for(const engine of ['optimized','reference']){
+   state.geometry=geometry;ensure();board().placed={};board().borders={};
+   const n=geometry.startsWith('tri')?3:6;
+   state.sets[family()]=[Array(n).fill(0),Array(n).fill(1)];
+   const seed=cellAt(n===3?'0,0,0':'0,0'),other=cellAt([...cellNeighbors(seed,geometry).values()][0]);
+   const shared=seed.edges.find(k=>other.edges.includes(k));
+   for(const c of [seed,other])for(const k of c.edges)if(k!==shared)board().borders[k]=null;
+   $('#solverEngine').value=engine;rebuild();
+   pendingEnumerationMode='step';await startRegionSolve({c:seed});
+   assert(enumerationSession.status==='paused'&&enumerationSession.count==='1',geometry+' '+engine+' UI first');
+   assert(Object.keys(board().placed).length===2,geometry+' applied both tiles');
+   await resumeEnumeration('next');
+   assert(enumerationSession.status==='paused'&&enumerationSession.count==='2',geometry+' UI next');
+   await resumeEnumeration('count');
+   assert(enumerationSession.exact&&enumerationSession.count==='2',geometry+' UI exact count');
+   checkedAssignments(enumerationSession.payload,Object.fromEntries(Object.entries(board().placed).map(([id,t])=>[id,t[0]])));
+   board().placed={};board().borders[seed.edges.find(k=>k!==shared)]=0;
+   board().borders[other.edges.find(k=>k!==shared)]=1;
+   pendingEnumerationMode='count';await startRegionSolve({c:seed});
+   assert(enumerationSession.exact&&enumerationSession.count==='0',geometry+' conflicting boundary UNSAT');
+  }
+  checks.push('all triangle/hexagon variants in UI / both engines / first-next-count / incompatible boundaries');
   const huge={...data,tiles:Array.from({length:16},(_,n)=>Array.from({length:4},(_,d)=>(n>>d)&1)),
    cells:Array.from({length:16},(_,n)=>({id:`${n%4},${Math.floor(n/4)}`,required:[null,null,null,null]})),enumeration_mode:'count'};
   let {id}=await solver.start(huge),result=await wait(id);

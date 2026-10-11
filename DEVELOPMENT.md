@@ -56,7 +56,8 @@ with `--port`. `--build-only` builds without starting a server, and
 
 Open `http://127.0.0.1:8765/?solver=native` to explicitly use the older local
 optimized C connector. The default URL uses WebAssembly even with this server.
-The Python code in this connector validates input and manages native C jobs;
+This optional native HTTP connector remains square-only; use the default browser
+mode for triangles and hexagons. The Python code in this connector validates input and manages native C jobs;
 it does not run the Python/Z3 solver. The historical `.openai/hosting.json`
 identifies an earlier Site and is not the current deployment configuration.
 
@@ -143,3 +144,13 @@ interactive selection and the real local optimized integration.
 - `DELETE /api/jobs/<id>`: cancel the native process; enumeration retains
   its last published lower bound.
 
+
+### Geometry-neutral enumeration
+
+Foundry's `wang_enumerate_graph` feeds explicit reciprocal cell/side adjacency
+into the existing C search core. Studio extracts regions using shared polygon
+edges; the browser package independently derives lattice adjacency and validates
+published assignments. Both reference and optimized engines support `tri-up`,
+`tri-side`, `hex-flat` and `hex-point`, with the same Worker lifecycle as squares.
+The package's graph input uses dense active cells (4096 maximum) and does not
+allocate a coordinate bounding rectangle. The square API remains compatible.
