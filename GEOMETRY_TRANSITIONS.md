@@ -11,7 +11,8 @@ removed, together with partition enumeration.
 ## Invariants and region properties
 
 Each original exterior interface retains its identity, color and cyclic position.
-It occupies one nonempty consecutive run of destination boundary edges. No
+A colored interface occupies exactly one destination boundary edge; only a
+`null` interface may occupy a nonempty consecutive run of multiple edges. No
 interface can disappear, split, reverse order or be introduced. Initially each
 exposed source edge is a distinct interface. Equal colors do **not** merge IDs;
 `null` remains a jolly (unconstrained) condition on every edge in its expansion.
@@ -24,8 +25,9 @@ visual resemblance, cell correspondence or exact perimeter length is required.
 Contours use the existing deterministic leftmost/uppermost start and visually
 anticlockwise orientation (canvas y points down). Cyclic verification permits
 changing the starting point but not reversal. The deterministic correspondence
-assigns boundary edge i to interface `floor(i * interfaceCount / edgeCount)`.
-When enough edges exist, this gives each interface a positive consecutive run.
+assigns one edge to each interface and distributes surplus edges evenly among
+the `null` interfaces, preserving cyclic order. A longer target perimeter without
+any `null` interface is rejected. Colored sides are never duplicated.
 
 ## Area: hard admissibility constraint
 
@@ -99,14 +101,14 @@ ratio, without forbidding strips or other shapes as a separate invariant.
 
 ## Pareto objectives
 
-Only admissible candidates enter the frontier. Both objectives are minimized:
+Only admissible candidates enter the frontier. With geometric preference disabled, both original objectives are minimized:
 
 1. Relative area error delta_A.
 2. Symmetric ratio deviation delta_rho.
 
 Dominance requires no worse value on either objective and strict improvement on
 at least one. There is no weighted sum. One witness per equal objective pair is
-retained. The UI sorts by increasing area error and permits selecting any retained
+retained when the entire shape feature is disabled. The continuous-field modes below retain multiple geometric representatives. The UI sorts by increasing area error and permits selecting any retained
 tradeoff after stopping. This is the frontier **of found candidates**, not a
 certified global frontier.
 
@@ -174,14 +176,15 @@ Both orientations of a family share its tileset, as elsewhere in the editor.
 
 - `interfaces`: ordered distinct IDs and colors;
 - `edgeInterfaces`: the interface on each exterior atomic edge;
-- `transition`: version 4, tolerances, metric convention, normalized source/target
+- `transition`: version 6, shape settings and integral interval, tolerances, metric convention, normalized source/target
   metrics, generation method and incomplete-search provenance.
 
 There are no saved source-cell units or internal contacts. Save/load and Undo/Redo
 retain the external identities, including through multiple transitions. Loading
 an old `board.logical` is supported: only `graph.boundary` and `edgeInterfaces`
 are read. Old `graph.units`, `cellUnits` and `contacts` impose no constraints.
-The next Apply writes the new boundary-only format.
+Older expanded colored mappings can still be read; new results enforce one edge
+per colored interface. The next Apply writes the new boundary-only format.
 
 If contour/color edits invalidate the saved external mapping, the next search
 reports the inconsistency. **Ridefinisci interfacce dal bordo** explicitly makes
@@ -214,3 +217,205 @@ composed transitions, legacy migration, unsupported regions and Worker timeout.
 `test_browser.mjs` exercises real Chromium, Worker search, Stop, preview/apply,
 both tolerance controls, stale-result protection, Undo/Redo, JSON round-trip,
 2×2 and 4×4 hexagonal results and unchanged Wasm solver behavior.
+
+
+## Continuous geometric reference
+
+`transition-shape.js` represents the source as the **union of the actual atomic
+polygons**, with their shared internal edges removed from the distance boundary.
+It uses the original floating-point vertices from `cellAt`, not the rounded
+`borderPoints` coordinates. A bounding box is only the integration domain; it is
+never the source shape. Concavities therefore remain in the reference.
+
+Canvas circumradii are `1/sqrt(2)` for squares, `1/sqrt(3)` for triangles and `1`
+for hexagons. Every coordinate is multiplied by `1/(2*pi*canvasCircumradius)`.
+The resulting polygon areas agree with the existing mathematical areas, including
+across families. Each region's geometric area centroid is translated to the
+origin. Atoms in a region have equal area, so their centroid average is exactly
+the region's area centroid. An anchor is subtracted before averaging to reduce
+cancellation for regions far from the canvas origin. There is **no area fitting,
+rotation optimization, reflection, principal-axis or skeleton alignment**.
+Orientation variants retain their existing Euclidean orientation.
+
+The immutable-in-use source reference is cached privately by source object,
+geometry, IDs and bandwidth; search and independent certification reuse this
+geometry, not submitted generator scores. Editing the source invalidates the
+cache key. The cache uses weak keys and does not retain previous searches.
+
+For a point x in this common Euclidean space:
+
+```
+d_s(x) = -distance(x, boundary(source)) inside the source,
+         +distance(x, boundary(source)) outside the source
+sigma = (p_sigma / 100) * sqrt(A(source))
+phi_sigma(x) = clip(1/2 - d_s(x)/(2*sigma), 0, 1)
+```
+
+Distance is the minimum Euclidean point-to-segment distance on the **exterior
+union boundary**, with polygon membership determined by ray crossing. Internal
+tile edges do not contribute. The band extends sigma to either side of the
+boundary. `p_sigma` defaults to 10%; it controls spatial softness, independently
+of the permitted total error. At `p_sigma=0`, phi is the indicator (boundary
+membership is irrelevant to the area integral); there is no division by zero.
+
+The observed geometric error is
+
+```
+E_shape = integral over (source symmetric_difference target)
+          of min(1, abs(d_s(x))/sigma) dx / A(source).
+```
+
+For sigma=0 the integrand is 1, giving symmetric-difference area divided by source
+area. Missing interior and added exterior both contribute. Identical geometric
+regions have zero error; the implementation recognizes exact translated
+same-lattice sets and returns the exact interval [0,0]. Other coincident regions
+are measured by the general bounded integral. Increasing bandwidth weakens the
+penalty near the source contour. Normalization is by source area, never by a
+count of destination tiles. Errors greater than 1 (100%) are valid.
+
+## Shape preference, hard constraint and discovery
+
+Four UI controls independently select geometric preference (default off),
+`p_sigma` (default 10%), a hard shape constraint (default off), and maximum error
+`p_E` (default 30%). Both percentages accept 0–10000% with two decimal places.
+`p_E/100` is the admissibility threshold; it is not a spatial bandwidth.
+
+Either enabled shape mode activates two additional deterministic growth streams.
+They place a source reference relative to a seed at either of two source-cell
+anchors. Candidate-cell scores approximate the polygon integral of
+`1 - 2*phi_sigma`, using three barycentric quadrature points in **every triangle
+of a fan covering the cell**, rather than just its center. Each stream caches up
+to 40,000 cell scores for its fixed placement. The complete destination is then
+centroid-aligned independently for evaluation. This distinction is deliberate:
+fixed placements allow reuse during growth but are only discovery heuristics.
+All nine previous growth streams and translation-canonical lattice-animal
+enumeration remain, interleaved with the two new streams. The field imposes no
+convexity or exact-shape invariant, and does not certify any candidate.
+
+With preference enabled, the Pareto objectives are independently
+`(delta_A, delta_rho, E_shape)`. There is no weighted sum. Since the shape measure
+has uncertainty, a shape dominance claim requires the dominating upper bound to
+be no greater than the other lower bound, together with the existing exact area
+and ratio comparisons and one strict improvement. Overlapping intervals leave
+potential tradeoffs on the frontier. With only the hard constraint enabled,
+Pareto dominance still uses the two original objectives, but shape metrics remain
+visible and geometric representatives are retained.
+
+When either mode is enabled, distinct translation-canonical sets sharing cell
+count and internal-edge count can survive: up to **eight representatives per
+(n,I)**, **256 candidates overall**, and **200,000 retained cell entries**.
+Selection within a capped group prioritizes the shape interval midpoint; the UI
+reports truncation. These are memory-limited representatives, not a complete
+Pareto set, and omitted candidates can include valid tradeoffs. With both modes
+disabled, the previous discovery order and one-witness-per-objective-pair policy
+remain; no integral is evaluated.
+
+The hard constraint requires `E_shape <= p_E/100`. The independent certificate
+reconstructs the destination polygons and computes its own integral, ignoring
+any `shapeError` supplied by the generator. Apply repeats this check on the main
+thread. If the upper bound passes, the candidate is admitted; if the lower bound
+exceeds the threshold it is rejected; if the interval straddles the threshold the
+certificate is **inconclusive** and the candidate is not admitted. Inconclusive
+counts are shown separately from shape exclusions. They never prove
+unrealizability. Area and B/I tolerances and every existing boundary/interface
+invariant are checked independently and unchanged.
+
+## Numerical integration and limits
+
+Integration adaptively subdivides an enclosing rectangle into four rectangles,
+refining the largest remaining integral uncertainty first with a deterministic
+heap. For a box centered at c with half-diagonal r, the signed-distance
+1-Lipschitz property bounds every distance in the box by `d(c) +/- r`. This
+establishes whether each entire box lies inside/outside each region. Boxes wholly
+inside both or outside both contribute zero; boxes definitely in the symmetric
+difference use bounds on the continuous weight; uncertain membership uses a zero
+lower bound and the maximum possible weighted area as upper bound. Summing gives
+analytic **spatial integration bounds**, not a statistical sampling confidence
+interval. Thin indentations cannot silently disappear between sample centers:
+a box whose center is too near a boundary remains uncertain and is refined.
+
+Default preference evaluation requests an interval width of 0.01 (one percentage
+point), with at most 2,048 evaluated boxes. Hard certification requests 0.002 with
+8,192 boxes. The public numerical routine allows refinement up to 65,536 boxes.
+An additional budget limits point/segment evaluations to about eight million per
+measurement. A budget may be reached before the requested accuracy: **precision
+is a requested width, not a promise**. Returned bounds, box count and `converged`
+make this observable. The UI always shows the interval and its midpoint, even
+when the requested width was not reached. Zero bandwidth, complex contours and
+small sigma can require substantially more work. Large intervals preserve
+uncertainty rather than falsely certifying a threshold or Pareto dominance.
+
+Floating-point computations use a spatial guard of `1e-10 * max(1, extent)` and
+an additional normalized-integral margin of `1e-9`. The spatial enclosure argument
+is analytic, but JavaScript arithmetic and trigonometric coordinates are **not a
+formally verified outward-rounded interval library**. These margins address
+roundoff in the supported coordinate range; they are not a machine-checked proof
+of all IEEE operations. Exact area and B/I predicates retain their existing
+BigInt guarantees. Formal floating-point interval certification remains a limit
+of the shape implementation; near-threshold approximate equality is never used
+as an acceptance shortcut. Exact same-lattice identity handles a zero threshold
+without a numerical equality guess.
+
+No global optimality is claimed. Search time limits and the main-thread Worker
+termination guard still apply; bounded integrations are synchronous within a
+search step, so cooperative time slices can overrun by one measurement. Further
+spatial indexing and tighter integration bounds could improve large-region
+throughput. The existing geometric topology checks remain the admission gate.
+
+## Shape UI and persistence
+
+The preview uses centroid-aligned normalized polygons. A translucent blue source
+underlies the green destination; a blue exterior stroke marks uncovered source
+parts. The source overlay uses two SVG paths, independent of source cell count
+in DOM nodes, and is rendered only for the selected result. This is the source
+region overlay, not an additional rasterization or heatmap used by the metric.
+
+`state.transitionSettings` stores all four shape controls. Changes are undoable;
+JSON validation checks types, ranges and precision. Old projects without settings
+load with both modes off. Apply records version 6, the controls, the recomputed
+shape interval and `centroid-translation-only` alignment in transition provenance.
+Apply remains a single undoable region/tileset replacement. Undo/Redo restores
+both settings and board provenance. No new internal-adjacency or tileset logical
+equivalence claim is introduced.
+
+## Reproducible C-region comparison
+
+Run `node tools/compare-transition-shape.cjs --write` to regenerate
+[raw results](docs/continuous-field-comparison.json) and the
+[overlaid shapes](docs/continuous-field-comparison.svg). This experiment uses a
+13-square C (top and bottom rows of length 5, left connecting column), all-null
+external interfaces, hex-flat destination, **30% area tolerance, 50% B/I tolerance,
+p_sigma=10%, no hard shape constraint**, and **6,000 generator work units per
+run**. The only mode difference is geometric preference. Evaluation of the final
+witnesses uses the same tighter 32,768-box budget for both runs. Work units are
+generator advances, not equal CPU time; guided search pays for the integral.
+
+| Run | Examined distinct sets | Admitted | Retained | Boundary exclusions | B/I exclusions |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Original search | 47 | 24 | 1 | 21 | 2 |
+| Continuous preference | 59 | 34 | 23 | 21 | 4 |
+
+| Selected witness | Cells | Area error | B/I deviation | Shape midpoint | Shape interval |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Original frontier | 10 | 0.0740% | 2.0408% | 138.46% | [132.80%, 144.11%] |
+| Guided, same cell count | 10 | 0.0740% | 41.6667% | 37.12% | [33.92%, 40.33%] |
+| Guided, smallest observed shape midpoint | 12 | 19.9112% | 41.6667% | 25.70% | [22.53%, 28.86%] |
+
+The source has B=28, I=12. The original witness becomes a long shape with little
+C-shaped overlap. Field-guided witnesses follow the C's opening and arms much
+more closely. The ten-cell comparison has identical area, but a different B/I:
+its improved geometry is a **tradeoff**, not dominance in every objective. The
+best shape witness spends more of the area tolerance. Both runs are incomplete,
+no representative cap was hit, and enumeration remains enabled. The saved JSON
+also includes machine-dependent timings, all retained cell IDs and every metric;
+these timings exclude the subsequent tighter reporting evaluation.
+
+Tests add exact/translated identities in every geometry, actual polygon-area
+normalization, elongated and convex replacements of a C, an approximate C versus
+a strip **with equal cell count and B/I**, bandwidth changes, the sharp limit,
+an analytically known 150% symmetric-difference case, refinement enclosures,
+strict/wide/inconclusive thresholds, untrusted generator metrics, multiple Pareto
+witnesses and disabled compatibility. Chromium tests cover the actual Worker,
+zero-threshold identity, preview, settings and certificate JSON persistence,
+invalid saved settings, Undo/Redo and legacy defaults. Existing boundary,
+interface-color, solver and transition tests continue to run in CI.

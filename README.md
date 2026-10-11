@@ -74,7 +74,8 @@ Choose the destination, area tolerance (default 30%), independent B/I deviation
 tolerance (default 50%) and search time. Click **Cerca realizzazioni**.
 
 Transitions preserve the identity, color and cyclic order of exterior interfaces.
-Each interface may occupy multiple consecutive sides. Internal cell counts and
+Each colored interface occupies exactly one side; only unconstrained (jolly)
+interfaces may expand over multiple consecutive sides. Internal cell counts and
 adjacencies can change. Equal-colored interfaces remain distinct and jolly
 interfaces remain unconstrained.
 

@@ -51,6 +51,13 @@ const TransitionObjectives=(()=>{
   const area=compareAreaError(source,left,right),ratio=compareRatioDeviation(source,left,right);
   return area<=0&&ratio<=0&&(area<0||ratio<0);
  }
+ // Candidate-level Pareto ordering includes independent numerical shape intervals.
+ // Overlapping intervals do not establish a shape advantage or equality.
+ function dominatesCandidate(source,left,right,shapePreference=false){
+  const area=compareAreaError(source,left.metrics,right.metrics),ratio=compareRatioDeviation(source,left.metrics,right.metrics);
+  if(!shapePreference)return area<=0&&ratio<=0&&(area<0||ratio<0);
+  return area<=0&&ratio<=0&&left.shapeError.upper<=right.shapeError.lower&&(area<0||ratio<0||left.shapeError.upper<right.shapeError.lower);
+ }
  function comparison(source,target){
   const[a,b]=ratioDeviation(source,target);
   return{relativeAreaError:display(errorForm(source,target))/source.area,areaRatio:target.area/source.area,areaError:display(errorForm(source,target)),idealCells:source.area/display(areaForm(1,target.s)),rho:target.rho,ratioDeviation:Number(a)/Number(b)};
@@ -82,5 +89,5 @@ const TransitionObjectives=(()=>{
  }
  // Keep ties: distinct realizations can share the same objective pair.
  function frontier(source,candidates){return candidates.filter((candidate,i)=>!candidates.some((other,j)=>i!==j&&dominates(source,other.metrics,candidate.metrics)));}
- return{metrics,comparison,compareAreaError,compareRatioDeviation,dominates,frontier,withinAreaPercent,withinRatioPercent,ratioDeviation,cellRange};
+ return{metrics,comparison,compareAreaError,compareRatioDeviation,dominates,dominatesCandidate,frontier,withinAreaPercent,withinRatioPercent,ratioDeviation,cellRange};
 })();

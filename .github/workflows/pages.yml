@@ -31,6 +31,8 @@ jobs:
         run: node tests/test_transition.cjs
       - name: Check normalized objectives
         run: node tests/test_transition_objectives.cjs
+      - name: Check continuous shape geometry
+        run: node tests/test_transition_shape.cjs
       - name: Check region transitions
         run: node tests/test_logical_transition.cjs
       - name: Check both C engines in the actual browser

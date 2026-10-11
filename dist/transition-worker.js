@@ -1,8 +1,8 @@
-importScripts(...['geometry.js','transition.js','transition-objectives.js','logical-transition.js','transition-search.js'].map(name=>name+'?v=boundary-4'));
+importScripts(...['geometry.js','transition.js','transition-objectives.js','transition-shape.js','logical-transition.js','transition-search.js'].map(name=>name+'?v=continuous-1'));
 self.onmessage=({data})=>{
  try{
-  const search=TransitionSearch.create(data.source,data.target,{maxAreaPercent:data.maxAreaPercent,maxRatioPercent:data.maxRatioPercent}),start=performance.now();let last=0;
-  const publish=()=>self.postMessage({status:search.state.status,reason:search.state.reason,proof:search.state.proof,frontier:search.state.frontier,examined:search.state.examined,accepted:search.state.accepted,rejectedArea:search.state.rejectedArea,rejectedBoundary:search.state.rejectedBoundary,rejectedRatio:search.state.rejectedRatio,rejectedGeometry:search.state.rejectedGeometry,bounds:search.state.bounds,work:search.state.work,elapsed:performance.now()-start});
+  const search=TransitionSearch.create(data.source,data.target,data),start=performance.now();let last=0;
+  const publish=()=>self.postMessage({status:search.state.status,reason:search.state.reason,proof:search.state.proof,frontier:search.state.frontier,examined:search.state.examined,accepted:search.state.accepted,rejectedArea:search.state.rejectedArea,rejectedBoundary:search.state.rejectedBoundary,rejectedRatio:search.state.rejectedRatio,rejectedGeometry:search.state.rejectedGeometry,rejectedShape:search.state.rejectedShape,inconclusiveShape:search.state.inconclusiveShape,frontierTruncated:search.state.frontierTruncated,bounds:search.state.bounds,work:search.state.work,elapsed:performance.now()-start});
   const tick=()=>{
    const slice=performance.now();
    do{search.step(20);}while(search.state.status==='running'&&performance.now()-slice<40);

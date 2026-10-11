@@ -1,9 +1,9 @@
 // Ordinary transitions preserve external interfaces only (historical filename).
 const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const sandbox={console};vm.createContext(sandbox);const run=s=>vm.runInContext(s,sandbox),json=s=>JSON.parse(run(`JSON.stringify(${s})`));
-for(const file of ['geometry.js','transition.js','transition-objectives.js','logical-transition.js','transition-search.js'])run(fs.readFileSync(path.join(__dirname,'../dist',file),'utf8'));
+for(const file of ['geometry.js','transition.js','transition-objectives.js','transition-shape.js','logical-transition.js','transition-search.js'])run(fs.readFileSync(path.join(__dirname,'../dist',file),'utf8'));
 function source(ids,g){
- run(`var r=regionBoundary(${JSON.stringify(ids)},'${g}');var borders=Object.fromEntries(r.boundary.map((e,i)=>[e.key,[0,0,2,null,1,2,0][i%7]]));var src=BoundaryTransition.source('${g}',borders,['#ffffff','#222222','#123456']);`);
+ run(`var r=regionBoundary(${JSON.stringify(ids)},'${g}');var borders=Object.fromEntries(r.boundary.map((e,i)=>[e.key,[0,0,null,2,1,2,0][i%7]]));var src=BoundaryTransition.source('${g}',borders,['#ffffff','#222222','#123456']);`);
 }
 function search(target,area=50,ratio=100,steps=15000){run(`var search=TransitionSearch.create(src,'${target}',{maxAreaPercent:${area},maxRatioPercent:${ratio}});search.step(${steps});`);}
 function certifyFront(target){
@@ -48,8 +48,8 @@ run('var broken=JSON.parse(JSON.stringify(c));var keys=c.region.boundary.map(e=>
 assert.throws(()=>run("BoundaryTransition.certificate(c.region.ids,'hex-flat',src,search.state,broken)"));
 // Identical colors cannot hide an interface reversal; actual cyclic rotations
 // of the supplied map remain valid, including a run crossing the contour start.
-run('var equalSource={...src,interfaces:src.interfaces.map(i=>({...i,color:0}))};var equalMap=BoundaryTransition.correspondence(c.region,equalSource.interfaces);var reversedMap=JSON.parse(JSON.stringify(equalMap));for(const k in reversedMap.edgeInterfaces)reversedMap.edgeInterfaces[k]=5-reversedMap.edgeInterfaces[k];');
-assert.throws(()=>run("BoundaryTransition.certificate(c.region.ids,'hex-flat',equalSource,search.state,reversedMap)"),/Ordine/);
+run('var equalSource={...src,interfaces:src.interfaces.map(i=>({...i,color:0}))};var equalMap=BoundaryTransition.correspondence(src.region,equalSource.interfaces);var reversedMap=JSON.parse(JSON.stringify(equalMap));for(const k in reversedMap.edgeInterfaces)reversedMap.edgeInterfaces[k]=5-reversedMap.edgeInterfaces[k];');
+assert.throws(()=>run("BoundaryTransition.certificate(src.region.ids,'square',equalSource,search.state,reversedMap)"),/Ordine/);
 run("var rotatedMap={edgeInterfaces:{},borders:{}};var cycle=c.region.boundary;cycle.forEach((e,i)=>{var from=cycle[(i+1)%cycle.length].key;rotatedMap.edgeInterfaces[e.key]=c.edgeInterfaces[from];rotatedMap.borders[e.key]=c.borders[from];});BoundaryTransition.certificate(c.region.ids,'hex-flat',src,search.state,rotatedMap);");
 // Old internal units may be deliberately nonsensical; only the boundary is read.
 run("var migrated=BoundaryTransition.source('hex-flat',c.borders,['#ffffff','#222222','#123456'],null,{graph:{units:'ignored',boundary:src.interfaces},cellUnits:'ignored',edgeInterfaces:c.edgeInterfaces});");
@@ -78,6 +78,27 @@ search('tri-up',50,99.99);assert.equal(run('search.state.frontier.length'),0);as
 search('tri-up',50,100);assert.ok(run('search.state.frontier.length>0'));
 // Invalid regions never pass: disconnected, duplicates, wrong atom IDs, holes.
 for(const [ids,g]of [[['0,0','2,0'],'square'],[['0,0','0,0'],'square'],[['0,0,0'],'hex-flat'],[Array.from({length:9},(_,i)=>`${i%3},${Math.floor(i/3)}`).filter(id=>id!=='1,1'),'square']])assert.throws(()=>run(`regionBoundary(${JSON.stringify(ids)},'${g}')`));
+// Screenshot regression: a 2x6 square region with a two-cell left tab.
+// Exactly two adjacent green edges must survive a longer hexagonal perimeter.
+run(`var tabIds=Array.from({length:12},(_,i)=>\`\${1+i%2},\${Math.floor(i/2)}\`).concat(['0,2','0,3']);
+ var tab=regionBoundary(tabIds,'square');
+ var tabBorders=Object.fromEntries(tab.boundary.map(e=>[e.key,null]));
+ for(const id of ['0,2','0,3']){var edge=cellAt(id,'square').edges.find(k=>edgeOwners(k,'square').some(c=>c.id===\`-1,\${id.split(',')[1]}\`));tabBorders[edge]=1;}
+ var src=BoundaryTransition.source('square',tabBorders,['#ffffff','#aabb88']);`);
+assert.equal(run('Object.values(tabBorders).filter(c=>c===1).length'),2);
+search('hex-flat',30,50);
+assert.ok(run('search.state.frontier.length>0'));
+assert.equal(run('search.state.frontier.every(c=>Object.values(c.borders).filter(v=>v===1).length===2)'),true);
+run(`var c=search.state.frontier[0];var expanded={edgeInterfaces:{},borders:{}};
+ c.region.boundary.forEach((e,i)=>{var item=src.interfaces[Math.floor(i*src.interfaces.length/c.region.boundary.length)];expanded.edgeInterfaces[e.key]=item.id;expanded.borders[e.key]=item.color;});`);
+assert.ok(run('Object.values(expanded.borders).filter(v=>v===1).length>2'),'old proportional mapping duplicates green');
+assert.throws(()=>run("BoundaryTransition.certificate(c.region.ids,'hex-flat',src,search.state,expanded)"),/duplicato/);
+// Fully constrained boundaries cannot silently acquire colored sides.
+run("var solid=BoundaryTransition.source('square',Object.fromEntries(regionBoundary(['0,0'],'square').boundary.map(e=>[e.key,0])),['#ffffff']);var noExpansion=TransitionSearch.create(solid,'hex-flat',{maxAreaPercent:50,maxRatioPercent:100});noExpansion.step(100);");
+assert.equal(run('noExpansion.state.frontier.length'),0);
+assert.ok(run('noExpansion.state.rejectedBoundary>0'));
+assert.throws(()=>run("BoundaryTransition.correspondence(regionBoundary(['0,0'],'hex-flat'),solid.interfaces)"),/senza vincolo/);
+
 // Worker deadline preserves partial state without an impossibility claim.
 source(Array.from({length:16},(_,i)=>`${i%4},${Math.floor(i/4)}`),'square');
 run("var posted=[],ticks=0;var performance={now:()=>++ticks*1000};var self={postMessage:data=>posted.push(data)};var importScripts=()=>{};var setTimeout=()=>{throw Error('Expired worker must not schedule another tick');};");
