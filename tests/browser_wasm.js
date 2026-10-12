@@ -135,6 +135,54 @@ window.addEventListener('load',async()=>{
    }
   }
   checks.push('257 tiles/colors, JSON import, both engines, adjacent SAT/UNSAT, five geometries, capability budgets');
+  // Large individual generalized pieces, through the actual UI/file handlers.
+  for(const [geometry,n]of [...['square','tri-up','tri-side','hex-flat','hex-point'].map(g=>[g,65]),['square',257]]){
+   state={geometry,palette:['#ffffff','#222222'],sets:{},boards:{}};ensure();history=[];future=[];
+   const ids=Array.from({length:n},(_,i)=>geometry.startsWith('tri')?`${Math.floor(i/2)},0,${i%2}`:`${i},0`);
+   board().borders=Object.fromEntries(regionBoundary(ids,geometry).boundary.map(e=>[e.key,0]));
+   regionSelection.borders=new Set(Object.keys(board().borders));$('#generalizedColor').value='#b99bdd';$('#generalizedName').value='Grande';
+   const before=JSON.stringify(state);assert(createGeneralized(),'large generalized creation '+geometry+' '+n);
+   const item=state.generalizedTiles[0];assert(item.atoms.length===n&&new Set(item.internalColors).size===n-1,'exclusive glues and complete atom set');
+   const encoding=JSON.stringify(item);undo();assert(JSON.stringify(state)===before,'large creation Undo');undo(true);
+   assert(JSON.stringify(state.generalizedTiles[0])===encoding,'large creation Redo preserves order');
+   let saved;const oldDownload=download;try{download=blob=>{saved=blob;};$('#save').click();}finally{download=oldDownload;}
+   const text=await saved.text();assert(JSON.parse(text).generalizedTiles[0].ids.length===n,'export entire generalized tile');
+   await $('#file').onchange({target:{files:[new File([text],'generalized.json',{type:'application/json'})],value:'generalized.json'}});
+   assert(JSON.stringify(state.generalizedTiles[0])===encoding,'import all atoms, colors and deterministic IDs');
+   for(const engine of ['reference','optimized']){
+    board().placed={};$('#solverEngine').value=engine;pendingEnumerationMode='count';
+    await startRegionSolve({c:cellAt(ids[0])});
+    assert(enumerationSession.exact&&enumerationSession.count==='1','Wasm 0.3.0 unique large generalized '+geometry+' '+engine);
+    assert(Object.keys(board().placed).length===n,'all generalized cells solved');
+   }
+   const snapshot=JSON.stringify(state),oldHistory=history,oldFuture=future;
+   const bad=JSON.parse(text);bad.generalizedTiles[0].atoms[0][0]=65536;
+   await $('#file').onchange({target:{files:[new File([JSON.stringify(bad)],'bad.json')],value:'bad.json'}});
+   assert(JSON.stringify(state)===snapshot&&history===oldHistory&&future===oldFuture,'invalid large import is atomic');
+  }
+  checks.push('individual 65-cell generalized tiles in five geometries and 257 square cells: UI create, Undo/Redo, JSON save/load, both Wasm engines');
+  // Recoverable allocation failures must never publish a partial project/history.
+  state={geometry:'square',palette:['#ffffff','#222222'],sets:{},boards:{}};ensure();history=[];future=[];
+  board().borders=Object.fromEntries(regionBoundary(['0,0','1,0'],'square').boundary.map(e=>[e.key,0]));
+  regionSelection.borders=new Set(Object.keys(board().borders));
+  const original=JSON.stringify(state),historyBefore=history,futureBefore=future;
+  const RealMap=Map;try{Map=class {constructor(){throw new RangeError('allocation failed');}};assert(!createGeneralized(),'allocation failure reported');}finally{Map=RealMap;}
+  assert(JSON.stringify(state)===original&&history===historyBefore&&future===futureBefore,'allocation failure leaves project/history untouched');
+  const originalRender=renderUI;let failRender=true;
+  try{renderUI=()=>{if(failRender){failRender=false;throw new RangeError('render allocation');}return originalRender();};assert(!createGeneralized(),'render failure reported');}finally{renderUI=originalRender;}
+  assert(JSON.stringify(state)===original&&history===historyBefore&&future===futureBefore,'creation rendering failure rolls back project/history');
+  assert(createGeneralized(),'creation can retry after allocation failure');
+  const importText=JSON.stringify({version:1,...state}),beforeImport=JSON.stringify(state),beforeHistory=history,beforeFuture=future;
+  failRender=true;
+  try{renderUI=()=>{if(failRender){failRender=false;throw new RangeError('render allocation');}return originalRender();};
+   await $('#file').onchange({target:{files:[new File([importText],'retry.json')],value:'retry.json'}});
+  }finally{renderUI=originalRender;}
+  assert(JSON.stringify(state)===beforeImport&&history===beforeHistory&&future===beforeFuture,'import rendering failure rolls back project/history');
+  const originalDownload=download;try{download=()=>{throw new RangeError('export allocation');};$('#save').click();}finally{download=originalDownload;}
+  assert($('#status').textContent.includes('memoria')&&JSON.stringify(state)===beforeImport,'export failure reported without changing project');
+  const previousPalette=state.palette;state.palette=Array(65536).fill('#ffffff');const full=JSON.stringify(state);
+  assert(!createGeneralized()&&JSON.stringify(state)===full,'palette exhaustion is atomic');state.palette=previousPalette;
+  checks.push('allocation/color exhaustion and rendering failures preserve project/history during creation, import and export');
   let idle=await solver.start({...data,idle_timeout_seconds:0.05});
   await wait(idle.id);await new Promise(r=>setTimeout(r,100));
   assert(solver.get(idle.id).status==='expired'&&!solver.get(idle.id).exact,'explicit idle expiry');

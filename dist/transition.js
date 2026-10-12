@@ -8,8 +8,8 @@ function transitionGeometry(g){if(!transitionGeometries.includes(g))throw Error(
 
 // A lattice edge cannot cross another lattice edge except at a vertex. Degree
 // two, one cycle and valid atomic edges therefore establish a simple contour.
-function orderedContour(keys){
- if(keys.length<3||keys.length>transitionLimit)throw Error('Contorno vuoto o troppo grande (massimo 20000 segmenti).');
+function orderedContour(keys,limit=transitionLimit){
+ if(keys.length<3||keys.length>limit)throw Error('Contorno vuoto o troppo grande (massimo 20000 segmenti).');
  const at=new Map();let start=null;
  for(const k of keys){
   const ends=k.split('|');
@@ -42,9 +42,9 @@ function nearbyCells(point,g){
  return result;
 }
 function edgeOwners(k,g){const[a,b]=borderPoints(k);return nearbyCells([(a[0]+b[0])/2,(a[1]+b[1])/2],g).filter(c=>c.edges.includes(k));}
-function regionBoundary(ids,g){
+function regionBoundary(ids,g,limit=transitionLimit){
  transitionGeometry(g);
- if(!ids.length||ids.length>transitionLimit||new Set(ids).size!==ids.length)throw Error('Regione vuota, duplicata o troppo grande.');
+ if(!ids.length||ids.length>limit||new Set(ids).size!==ids.length)throw Error('Regione vuota, duplicata o troppo grande.');
  const claims=new Map(),adj=new Map(ids.map(id=>[id,[]]));let a=0;
  for(const id of ids){
   const pattern=g.startsWith('tri')?/^-?\d+,-?\d+,[01]$/:/^-?\d+,-?\d+$/;
@@ -57,13 +57,13 @@ function regionBoundary(ids,g){
  const queue=[ids[0]],seen=new Set(queue);
  for(let h=0;h<queue.length;h++)for(const id of adj.get(queue[h]))if(!seen.has(id)){seen.add(id);queue.push(id);}
  if(seen.size!==ids.length)throw Error('Regione disconnessa non supportata.');
- const boundary=orderedContour([...claims].filter(([,owners])=>owners.length===1).map(([k])=>k));
+ const boundary=orderedContour([...claims].filter(([,owners])=>owners.length===1).map(([k])=>k),limit);
  const s=cellAt(ids[0],g).p.length;
  if(boundary.length!==s*ids.length-2*a)throw Error('Identità del perimetro non rispettata.');
  return{ids,boundary,n:ids.length,a,s};
 }
-function readTransitionRegion(g,borders,palette){
- transitionGeometry(g);const keys=Object.keys(borders),boundary=orderedContour(keys);
+function readTransitionRegion(g,borders,palette,limit=transitionLimit){
+ transitionGeometry(g);const keys=Object.keys(borders),boundary=orderedContour(keys,limit);
  for(const k of keys){const color=borders[k];if(color!==null&&(!Number.isInteger(color)||color<0||color>=palette.length))throw Error('Colore di bordo non valido.');}
  // Validate the entire cycle as atomic sides before flood fill.
  let seed;
@@ -78,10 +78,10 @@ function readTransitionRegion(g,borders,palette){
  for(let h=0;h<queue.length;h++){
   const c=cellAt(queue[h],g),[x,y]=c.center;
   if(x<x0||x>x1||y<y0||y>y1)throw Error('Contorno aperto o interno non valido.');
-  if(queue.length>transitionLimit)throw Error('Regione troppo grande (massimo 20000 celle).');
+  if(queue.length>limit)throw Error('Regione troppo grande (massimo 20000 celle).');
   for(const[k,id]of cellNeighbors(c,g))if(!barriers.has(k)&&!seen.has(id)){seen.add(id);queue.push(id);}
  }
- const region=regionBoundary(queue,g);
+ const region=regionBoundary(queue,g,limit);
  if(region.boundary.length!==keys.length||region.boundary.some(e=>!barriers.has(e.key)))throw Error('Il bordo non coincide con la regione: buchi o bordi interni non supportati.');
  return{...region,colors:region.boundary.map(e=>borders[e.key])};
 }

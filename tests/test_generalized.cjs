@@ -36,14 +36,61 @@ run(`var second=GeneralizedTiles.compile(g,borders,plan.palette,'#b99bdd','Secon
 assert.equal(run('second.item.internalColors.some(c=>plan.item.internalColors.includes(c))'),false);
 assert.doesNotThrow(()=>run('GeneralizedTiles.validateProject({palette:second.palette,generalizedTiles:[plan.item,second.item]})'));
 assert.throws(()=>run(`GeneralizedTiles.compile(g,borders,Array(65536).fill('#ffffff'),'#b99bdd','Limite')`),/65536/);
-assert.throws(()=>run(`GeneralizedTiles.compile(g,Object.fromEntries(regionBoundary(Array.from({length:33},(_,i)=>i+',0'),g).boundary.map(e=>[e.key,0])),palette,'#b99bdd','Limite')`),/32/);
 run(`var single=GeneralizedTiles.compile(g,Object.fromEntries(regionBoundary(['0,0'],g).boundary.map(e=>[e.key,0])),palette,'#b99bdd','Singola');`);
 assert.equal(run('single.item.internalColors.length'),0);
 assert.equal(run('GeneralizedTiles.countSolutions(single.item.ids,g,single.item.borders,single.item.atoms)'),1);
 for(const ids of [['0,0','1,0','0,1'],['0,0','1,0','2,0','0,1','0,2'],Array.from({length:32},(_,i)=>`${i},0`)]){
  run(`var outline=Object.fromEntries(regionBoundary(${JSON.stringify(ids)},g).boundary.map(e=>[e.key,0]));var shapePlan=GeneralizedTiles.compile(g,outline,palette,'#b99bdd','Forma');`);
- assert.equal(run('GeneralizedTiles.countSolutions(shapePlan.item.ids,g,outline,shapePlan.item.atoms)'),1,'concave and maximum-sized regions');
+ assert.equal(run('GeneralizedTiles.countSolutions(shapePlan.item.ids,g,outline,shapePlan.item.atoms)'),1,'concave regions');
 }
 run(`var reservedBorder=Object.fromEntries(regionBoundary(['0,0'],g).boundary.map(e=>[e.key,plan.item.internalColors[0]]));var foreign=GeneralizedTiles.compile(g,reservedBorder,plan.palette,'#b99bdd','Bordo riservato');foreign.item.id='g-2';`);
 assert.throws(()=>run('GeneralizedTiles.validateProject({palette:foreign.palette,generalizedTiles:[plan.item,foreign.item]})'),/riservato/);
 console.log('PASS generalized: 5 geometries, independent uniqueness, ordering, exclusive shades, validation, legacy defaults, malformed/open/wildcard boundaries and limits.');
+
+// More than the former 32-cell cap, and more than the abandoned 256-cell cap.
+for(const geometry of ['square','hex-flat','hex-point','tri-up','tri-side'])for(const n of [33,65,257]){
+ const ids=geometry.startsWith('tri')?Array.from({length:n},(_,i)=>`${Math.floor(i/2)},0,${i%2}`):Array.from({length:n},(_,i)=>`${i},0`);
+ run(`var largeIds=${JSON.stringify(ids)},largeGeometry=${JSON.stringify(geometry)};
+ var largeBorders=Object.fromEntries(regionBoundary(largeIds,largeGeometry).boundary.map(e=>[e.key,0]));
+ var largePlan=GeneralizedTiles.compile(largeGeometry,largeBorders,palette,'#b99bdd','Grande');largePlan.item.id='g-1';`);
+ assert.equal(run('largePlan.item.atoms.length'),n);
+ assert.equal(run('new Set(largePlan.item.internalColors).size'),n-1);
+ assert.equal(run('GeneralizedTiles.countSolutions(largePlan.item.ids,largeGeometry,largeBorders,largePlan.item.atoms)'),1);
+ assert.equal(run('JSON.stringify(largePlan.item.ids)'),run('JSON.stringify(GeneralizedTiles.ordered(largeIds,largeGeometry))'));
+ assert.doesNotThrow(()=>run('GeneralizedTiles.validateProject(JSON.parse(JSON.stringify({palette:largePlan.palette,generalizedTiles:[largePlan.item],tilesetMode:"generalized"})))'));
+ assert.equal(run('GeneralizedTiles.active({generalizedTiles:[largePlan.item]},largeGeometry).length'),n);
+ const before=run('JSON.stringify([largeBorders,palette])');
+ assert.throws(()=>run("GeneralizedTiles.compile(largeGeometry,largeBorders,Array(65536).fill('#ffffff'),'#b99bdd','Esaurimento')"),/65536/);
+ assert.equal(run('JSON.stringify([largeBorders,palette])'),before);
+}
+// Preserve the finite shade-ramp resource and fail without changing inputs.
+run(`var shadeBefore=JSON.stringify(palette),tooMany=Array.from({length:2000},(_,i)=>i+',0');
+ var tooManyBorders=Object.fromEntries(regionBoundary(tooMany,'square').boundary.map(e=>[e.key,0]));`);
+assert.throws(()=>run("GeneralizedTiles.compile('square',tooManyBorders,palette,'#b99bdd','Colori')"),/Sfumature disponibili insufficienti/);
+assert.equal(run('JSON.stringify(palette)'),run('shadeBefore'));
+// No inherited transition cap or recursive stack cap on generalized validation.
+run(`var deep=Array.from({length:20001},(_,i)=>i+',0');`);
+assert.throws(()=>run("regionBoundary(deep,'square')"),/troppo grande/,'transition budget remains unchanged');
+assert.equal(run("GeneralizedTiles.countSolutions(deep,'square',{},[[0,0,0,0]])"),1);
+assert.equal(run("readTransitionRegion('square',Object.fromEntries(regionBoundary(deep,'square',Infinity).boundary.map(e=>[e.key,0])),palette,Infinity).n"),20001);
+// Allocation errors stay distinct from SAT/UNSAT and expose a resource message.
+run('var RealMap=Map;Map=class {constructor(){throw new RangeError("allocation failed");}};');
+assert.throws(()=>run("GeneralizedTiles.compile('square',borders,palette,'#b99bdd','Memoria')"),/memoria insufficienti/);
+run('Map=RealMap;');
+console.log('PASS generalized scaling: 33/65/257 cells in five geometries, deterministic order, JSON round trip, 20001-cell traversal, resource failures.');
+// Independent exhaustive oracle checks the iterative search and root pruning.
+let seed=8197;const random=n=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;};
+for(const g of ['square','hex-flat','hex-point','tri-up','tri-side'])for(let trial=0;trial<40;trial++){
+ const ids=g.startsWith('tri')?['0,0,0','0,0,1','1,0,0']:['0,0','1,0','2,0'];
+ const cells=ids.map(id=>JSON.parse(run(`JSON.stringify(cellAt(${JSON.stringify(id)},${JSON.stringify(g)}))`)));
+ const atoms=Array.from({length:1+random(5)},()=>Array.from({length:cells[0].edges.length},()=>random(2)));
+ const borders={};for(const c of cells)for(const key of c.edges)if(random(5)===0)borders[key]=random(2);
+ const ts=[...new Map(atoms.map(t=>[JSON.stringify(t),t])).values()];let expected=0;const assignment=[];
+ function visit(i){if(i===cells.length){expected++;return;}for(const t of ts){
+  if(cells[i].edges.some((key,side)=>Object.hasOwn(borders,key)&&borders[key]!==t[side]))continue;
+  if(assignment.some((other,j)=>cells[j].edges.some((key,side)=>{const d=cells[i].edges.indexOf(key);return d>=0&&other[side]!==t[d];})))continue;
+  assignment.push(t);visit(i+1);assignment.pop();
+ }}visit(0);
+ assert.equal(run(`GeneralizedTiles.countSolutions(${JSON.stringify(ids)},${JSON.stringify(g)},${JSON.stringify(borders)},${JSON.stringify(atoms)})`),Math.min(2,expected),g+' trial '+trial);
+}
+console.log('PASS: iterative uniqueness agrees with independent exhaustive enumeration on 200 cases.');

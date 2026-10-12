@@ -9,6 +9,21 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 function ensure(){resetSelection();if(mode==='paste')mode='select';ink=Math.min(ink,state.palette.length-1);hover=null;if(!state.sets[family()])state.sets[family()]=Array.from({length:8},(_,i)=>Array.from({length:count()},(_,e)=>(i+e*(i%3+1)+Math.floor(i/4))%state.palette.length));if(!state.boards[state.geometry])state.boards[state.geometry]={placed:{},borders:{}};selected=Math.min(selected,tiles().length-1);draft=[...tiles()[Math.max(0,selected)]||Array(count()).fill(0)];}
 function message(s){$('#status').textContent=s;}
 function snapshot(){history.push(clone(state));if(history.length>80)history.shift();future=[];}
+function projectError(error){return error instanceof RangeError?'Risorse di memoria insufficienti; progetto non modificato.':error.message;}
+// Prepare history first and publish only if the new project's UI also renders.
+function commitProject(next,reset=false){
+ const previous={state,history,future,clipboard,ink,selected,hover,draft,mode,regionSelection,selectionBox,cells,edgeMap,gridView};
+ const nextHistory=[...history,clone(state)].slice(-80);
+ try{
+  state=next;
+  if(reset){clipboard=null;ink=0;selected=0;hover=null;ensure();rebuild();}
+  renderUI();draw();history=nextHistory;future=[];
+ }catch(error){
+  ({state,history,future,clipboard,ink,selected,hover,draft,mode,regionSelection,selectionBox,cells,edgeMap,gridView}=previous);
+  try{renderUI();draw();}catch{} // The data/history are restored even if rendering is out of memory.
+  throw error;
+ }
+}
 function undo(redo=false){const from=redo?future:history,to=redo?history:future;if(!from.length)return;to.push(clone(state));state=from.pop();ensure();rebuild();renderUI();draw();}
 let gridView='';
 function viewKey(){return[state.geometry,width,height,zoom,pan.x,pan.y].join(':');}
@@ -95,9 +110,9 @@ window.addEventListener('keydown',e=>{
  else{if(key==='p')setMode('place');if(key==='b')setMode('border');if(key==='e')setMode('erase');if(key==='s')setMode('select');if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteRegion();}}
 });window.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});window.addEventListener('blur',()=>{space=false;drag=null;});
 function download(blob,name){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-$('#save').onclick=()=>download(new Blob([JSON.stringify({version:1,...state,solverEngine:typeof solverProvenance==='function'?solverProvenance():null},null,2)],{type:'application/json'}),'wang-studio.json');$('#load').onclick=()=>$('#file').click();
+$('#save').onclick=()=>{try{download(new Blob([JSON.stringify({version:1,...state,solverEngine:typeof solverProvenance==='function'?solverProvenance():null},null,2)],{type:'application/json'}),'wang-studio.json');}catch(error){message('Impossibile salvare: '+projectError(error));}};$('#load').onclick=()=>$('#file').click();
 function validate(data){const types=['square','hex-flat','hex-point','tri-up','tri-side'];if(!data||data.version!==1||!types.includes(data.geometry)||!Array.isArray(data.palette)||!data.palette.length||data.palette.length>65536||!data.palette.every(v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v))||!data.sets||!data.boards)throw Error('Formato progetto non valido.');const valid=t=>Array.isArray(t)&&t.every(n=>Number.isInteger(n)&&n>=0&&n<data.palette.length);for(const [k,ts]of Object.entries(data.sets)){const n={square:4,hex:6,tri:3}[k];if(!n||!Array.isArray(ts)||!ts.every(t=>valid(t)&&t.length===n))throw Error('Tileset non valido.');}for(const[k,b]of Object.entries(data.boards)){if(!types.includes(k)||!b||!b.placed||!b.borders)throw Error('Griglia non valida.');const n=k==='square'?4:k.startsWith('hex')?6:3;for(const[id,t]of Object.entries(b.placed)){if(!/^-?\d+,-?\d+(,[01])?$/.test(id)||!valid(t)||t.length!==n)throw Error('Tessera non valida.');}for(const [id,v]of Object.entries(b.borders)){if(!/^-?\d+,-?\d+\|-?\d+,-?\d+$/.test(id)||(v!==null&&!valid([v])))throw Error('Bordo non valido.');}}return{...(Object.hasOwn(data,'transitionSettings')?{transitionSettings:{...TransitionShape.settings(data.transitionSettings),...BoundaryTransition.settings(data.transitionSettings)}}:{}),geometry:data.geometry,palette:data.palette,sets:data.sets,boards:data.boards,solverEngine:data.solverEngine??null};}
-$('#file').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>5e6)throw Error('Il file è troppo grande.');const next=validate(JSON.parse(await f.text()));snapshot();state=next;clipboard=null;ink=0;selected=0;hover=null;ensure();rebuild();renderUI();draw();message('Progetto aperto.');}catch(err){message('Impossibile aprire: '+err.message);}e.target.value='';};
+$('#file').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>5e6)throw Error('Il file è troppo grande.');const next=validate(JSON.parse(await f.text()));commitProject(next,true);message('Progetto aperto.');}catch(err){message('Impossibile aprire: '+projectError(err));}e.target.value='';};
 function exportCanvas(mode='frame'){
  const output=document.createElement('canvas');const placed=Object.entries(board().placed).map(([id,t])=>({c:cellAt(id),t}));let project=screen,ratio=devicePixelRatio,w=width,h=height;
  if(mode==='all'){

@@ -24,14 +24,16 @@ function createGeneralized(){
   let n=1;while(items.some(t=>t.id===`g-${n}`))n++;plan.item.id=`g-${n}`;
   const next={...state,palette:plan.palette,generalizedTiles:[...items,plan.item],tilesetMode:'generalized'};
   GeneralizedTiles.validateProject(next);
-  snapshot();state=next;renderUI();draw();
+  commitProject(next);
   message(`${name}: creata e verificata, esattamente una tassellazione con le proprie ${plan.item.atoms.length} atomiche. La griglia è rimasta invariata.`);
   return true;
- }catch(error){message('Generalizzata non creata: '+error.message);return false;}
+ }catch(error){message('Generalizzata non creata: '+projectError(error));return false;}
 }
 function generalizedPreview(item){
- const polys=item.ids.map(id=>cellAt(id,item.geometry).p),points=polys.flat();
- const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]),x=Math.min(...xs),y=Math.min(...ys),w=Math.max(...xs)-x,h=Math.max(...ys)-y;
+ const polys=item.ids.map(id=>cellAt(id,item.geometry).p);
+ let x=Infinity,y=Infinity,x1=-Infinity,y1=-Infinity;
+ for(const poly of polys)for(const [px,py]of poly){x=Math.min(x,px);y=Math.min(y,py);x1=Math.max(x1,px);y1=Math.max(y1,py);}
+ const w=x1-x,h=y1-y;
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
  svg.setAttribute('viewBox',`${x-.12} ${y-.12} ${w+.24} ${h+.24}`);svg.setAttribute('role','img');svg.setAttribute('aria-label',`Anteprima di ${item.name}`);
  svg.innerHTML=polys.map((poly,i)=>{

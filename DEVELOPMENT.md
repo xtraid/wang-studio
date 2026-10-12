@@ -189,8 +189,42 @@ static subpath and when given the public Pages URL.
 Remaining budgets: 65536 active cells, 65536 palette/used colors, up to 2 GiB
 Wasm memory, and Studio's 30-second active search segment. The package default
 is 600 seconds; Studio supplies its own timeout. Pause has no default expiry.
-The editor retains its separate 5 MB import budget, 32 cells per generalized
-piece and 100 catalog entries. Those are editor/uniqueness budgets, not solver
+The editor retains its separate 5 MB import budget and 100 catalog entries;
+generalized pieces have no fixed cell-count limit. Those are editor/uniqueness budgets, not solver
 tileset limits. The optional native connector retains its original restrictions.
 Large inputs use the same dynamic browser engine for both selections; they do
 not claim the specialized native optimized performance.
+
+
+### Generalized pieces without a cell-count cap
+
+Creation and imported-item validation use uncapped region extraction; the
+transition tools retain their existing 20000-cell/segment budgets. Coordinate
+validation, simple connected contours, boundary colors, exclusive internal
+colors and deterministic cell ordering are unchanged. Preview bounds use an
+iterative reduction rather than spreading all vertices into function arguments.
+
+Independent uniqueness verification indexes edge colors, prunes unsupported
+root domains and enumerates with explicit DFS frames. It neither fixes cells
+to the generated witness nor treats resource exhaustion as UNSAT or uniqueness.
+The existing 100000-node work budget remains. Interior domains share the tileset
+until pruning, avoiding an unconditional cells-times-tiles allocation.
+
+Compilation/validation do not mutate the project. Creation and import prepare
+undo history before switching state and roll back state/history if rendering
+throws. Recoverable allocation errors are reported explicitly; export failures
+leave the project intact. A browser process killed by the OS or a fatal engine
+OOM cannot be caught by JavaScript; unsaved work still depends on browser memory.
+
+Effective limits remain available memory, available distinct RGB shades on the
+selected color ramp, the 65536-entry palette, the uniqueness work budget,
+100 catalog entries and 5 MB JSON imports. Color-ramp exhaustion may happen well
+before the palette is full, depending on base color and previously used colors.
+The unchanged Wasm 0.3.0 dependency additionally limits a solve to 65536 active
+cells, its linear-memory ceiling and the configured search deadline.
+
+Tests cover 33/65/257 cells in all five geometries, a 20001-cell traversal,
+an independent exhaustive oracle for 200 small uniqueness instances, UI
+creation, Undo/Redo, real JSON export/import and Wasm solving of individual
+65-cell pieces in all geometries plus a 257-cell square piece. Allocation,
+color exhaustion, malformed import and rendering faults verify atomic failure.

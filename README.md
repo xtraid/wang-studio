@@ -56,8 +56,11 @@ older projects default to Atomico with an empty generalized catalog. Switching
 mode or changing the active catalog invalidates solver continuation. Remove
 foreign fixed tiles from the target region before solving in Generalizzato.
 
-Current limits: 32 cells per generalized tile, 100 catalog entries, 65536 palette
-colors per project. Solver requests accept runtime-sized active atomic
+Generalized tiles have no fixed cell-count limit. Existing resource budgets
+remain: 100 catalog entries and 65536 palette colors per project. Each internal
+adjacency needs a distinct available shade; exhaustion fails without saving a
+partial tile. Uniqueness verification retains its 100000-node work budget and
+reports an inconclusive result instead of accepting an unverified tile. Solver requests accept runtime-sized active atomic
 tilesets and up to 65536 used colors, including boundary constraints. The catalog shows the
 active totals; excesses are rejected, never silently truncated. Generated colors
 and existing board placements are retained when deleting a catalog entry, to
