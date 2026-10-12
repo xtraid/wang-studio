@@ -154,41 +154,43 @@ into the existing C search core. Studio extracts regions using shared polygon
 edges; the browser package independently derives lattice adjacency and validates
 published assignments. Both reference and optimized engines support `tri-up`,
 `tri-side`, `hex-flat` and `hex-point`, with the same Worker lifecycle as squares.
-The package's graph input uses dense active cells (4096 maximum) and does not
+The package's graph input uses dense active cells (65536 maximum) and does not
 allocate a coordinate bounding rectangle. The square API remains compatible.
 
 
-### Runtime-sized browser tilesets (solver-web 0.2.0)
+### Runtime-sized browser tilesets and colors (solver-web 0.3.0)
 
-The public JavaScript API remains version 1; its internal Worker/Wasm ABI is 2.
-The vendored adapter allocates `ceil(tile_count / 32)` words per cell and returns
-numeric tile indices without narrowing them to a byte. The editor only handles
-edge arrays. Squares with large tilesets use the general graph entry point.
-Both solver selections use the browser dynamic engine above 32 tiles; native
-Reference, Optimized and OpenMP are unaffected. The installer pins and verifies
-every artifact, including `foundry.wasm`, using `solver.lock.json`.
+The public JavaScript API remains version 1; the matched Worker/Wasm pair uses
+private ABI 3. Domains contain `ceil(tile_count / 32)` words per cell. Wide color
+arrays use 32-bit IDs and a separate unconstrained boundary sentinel. The editor
+passes edge arrays and consumes capabilities supplied by the installed package.
+Native Reference, Optimized and OpenMP APIs remain unchanged.
 
-`tests/browser_wasm.js` exercises actual Chromium UI controls and file handlers
-for 23, 32, 33, 64 and 65 tiles in all five geometries, both engine selections,
-SAT and UNSAT, the highest tile ID, canvas rendering and export. It also solves
-catalogs containing 65 compiled generalized atoms, checks ABI 2 in the running
-session, and checks pause, timeout and cancellation. The browser harness fails
-on unhandled exceptions and `console.error`, and rejects native API requests.
+Studio pins the published release built from clean Foundry commit
+`cb56814760f78ee59e76e41ebfb61e3287237372`. Reinstall it independently:
 
-The former solver limit in `closedRegion` and the `/32` generalized status are
-removed. Project loading no longer imposes a separate 10,000-tile ceiling;
-the existing 5 MB import budget remains. The existing 32-cell budget per single
-generalized piece is a separate geometry/uniqueness constraint, not a tileset
-cardinality limit, and remains unchanged. The palette, used-color and region
-budgets also remain unchanged. Browser computation is limited by available
-memory (the shipped Wasm budget is 256 MiB) and the session deadline.
+```sh
+python tools/solver_package.py install https://github.com/xtraid/tiling-foundry/releases/download/solver-web-v0.3.0/tiling-foundry-solver-web-0.3.0.tar.gz --sha256 10043becfd404944575808b092400085d12767f3159d0a3f77b9ec88898d8ad6
+python tools/solver_package.py verify
+```
 
-Verified locally for this integration: all six Node suites, all 14 Python tests,
-and the complete headless Chromium flow pass. The installed 0.2.0 package was
-built from clean Foundry commit `84ba5b0606f3aeb61f3448acecaa2249f0f09f9e`.
-Its Wasm SHA-256 is
-`5aaa5f905a6d0b6639c0d81bc2c10bcd489cf91694954f81af132531bbc88980`.
-The installer verified it against the generated manifest, and the copied binary
-was compared byte-for-byte with the build output. Foundry's
-`docs/web-dynamic-domains.md` records engine tests, memory checks and benchmarks.
-No public-site deployment is part of this local integration.
+The lock pins the HTTPS release URL, archive SHA-256 and manifest SHA-256.
+The manifest pins all runtime file hashes, source revision and build flags.
+Foundry's two local clean rebuilds and GitHub's independent release build
+produced identical archives using Emscripten 4.0.23.
+
+Browser tests cover actual controls, JSON file handlers, high-ID rendering,
+23/32/33/64/65 tiles and 257 tiles/colors in all five geometries, both engine
+selections, adjacent SAT/UNSAT, capability budgets, generalized catalogs,
+pause/resume, explicit idle expiry, timeout, Stop and stale-result rejection.
+The harness rejects console errors and any native API request, both on a local
+static subpath and when given the public Pages URL.
+
+Remaining budgets: 65536 active cells, 65536 palette/used colors, up to 2 GiB
+Wasm memory, and Studio's 30-second active search segment. The package default
+is 600 seconds; Studio supplies its own timeout. Pause has no default expiry.
+The editor retains its separate 5 MB import budget, 32 cells per generalized
+piece and 100 catalog entries. Those are editor/uniqueness budgets, not solver
+tileset limits. The optional native connector retains its original restrictions.
+Large inputs use the same dynamic browser engine for both selections; they do
+not claim the specialized native optimized performance.

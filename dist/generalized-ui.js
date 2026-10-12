@@ -66,7 +66,7 @@ function renderGeneralized(){
   remove.onclick=()=>{snapshot();state.generalizedTiles=state.generalizedTiles.filter(t=>t.id!==item.id);if(activeSolve)cancelSolve();renderUI();draw();message('Generalizzata e atomiche associate rimosse dal catalogo. Palette e griglia conservate; puoi annullare.');};card.append(remove);list.append(card);
  }
  const active=GeneralizedTiles.active(state,state.geometry),used=new Set(active.flat());
- $('#generalizedSummary').textContent=`${items.length} generalizzate salvate · ${active.length} tipi atomici attivi · ${used.size}/16 colori usati (più eventuali vincoli della regione).${used.size>16?' Limite del solver superato: disabilita alcune generalizzate.':''}`;
+ $('#generalizedSummary').textContent=`${items.length} generalizzate salvate · ${active.length} tipi atomici attivi · ${used.size} colori usati (più eventuali vincoli della regione).`;
 }
 $('#atomicTab').onclick=()=>setTilesetMode('atomic');
 $('#generalizedTab').onclick=()=>setTilesetMode('generalized');

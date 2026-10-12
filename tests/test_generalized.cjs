@@ -35,7 +35,7 @@ assert.equal(run('GeneralizedTiles.countSolutions(ids,g,borders,[[1,1,1,1]])'),0
 run(`var second=GeneralizedTiles.compile(g,borders,plan.palette,'#b99bdd','Seconda');second.item.id='g-2';`);
 assert.equal(run('second.item.internalColors.some(c=>plan.item.internalColors.includes(c))'),false);
 assert.doesNotThrow(()=>run('GeneralizedTiles.validateProject({palette:second.palette,generalizedTiles:[plan.item,second.item]})'));
-assert.throws(()=>run(`GeneralizedTiles.compile(g,borders,Array(128).fill('#ffffff'),'#b99bdd','Limite')`),/128/);
+assert.throws(()=>run(`GeneralizedTiles.compile(g,borders,Array(65536).fill('#ffffff'),'#b99bdd','Limite')`),/65536/);
 assert.throws(()=>run(`GeneralizedTiles.compile(g,Object.fromEntries(regionBoundary(Array.from({length:33},(_,i)=>i+',0'),g).boundary.map(e=>[e.key,0])),palette,'#b99bdd','Limite')`),/32/);
 run(`var single=GeneralizedTiles.compile(g,Object.fromEntries(regionBoundary(['0,0'],g).boundary.map(e=>[e.key,0])),palette,'#b99bdd','Singola');`);
 assert.equal(run('single.item.internalColors.length'),0);

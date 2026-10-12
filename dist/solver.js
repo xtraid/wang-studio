@@ -1,6 +1,6 @@
 /* Tiling Foundry package connector. Browser Worker by default; optional local API. */
 let activeSolve=null,enumerationSession=null,pendingEnumerationMode='step';
-let browserSolverPromise=null;
+let browserSolverPromise=null,solverCapabilities=null;
 function solverProvenance(){
  const session=enumerationSession;
  if(!session?.engine)return state.solverEngine||null;
@@ -10,8 +10,9 @@ function solverProvenance(){
 }
 function solverTiles(){return state.tilesetMode==='generalized'?GeneralizedTiles.active(state,state.geometry):tiles();}
 function solverStamp(){return JSON.stringify({geometry:state.geometry,palette:state.palette,tiles:solverTiles(),tilesetMode:state.tilesetMode??'atomic',board:board(),solver:$('#solverEngine').value||'optimized'});}
-function closedRegion(seed){
+function closedRegion(seed,capabilities=solverCapabilities??{}){
  if(!seed)throw Error('Clicca una cella interna alla regione chiusa.');
+ const maxCells=capabilities.max_cells??65536;
  const activeTiles=solverTiles();
  if(!activeTiles.length)throw Error('Il solver richiede almeno un tipo atomico attivo. Abilita le generalizzate oppure modifica il tileset atomico.');
  const geometry=state.geometry,keys=Object.keys(board().borders);
@@ -23,7 +24,7 @@ function closedRegion(seed){
  for(let head=0;head<queue.length;head++){
   const {c,neighbors}=get(queue[head]),[x,y]=c.center;
   if(x<minX-1e-4||y<minY-1e-4||x>maxX+1e-4||y>maxY+1e-4)throw Error('Il contorno è aperto, oppure hai cliccato all’esterno. Chiudi tutti i lati della regione.');
-  if(queue.length>4096)throw Error('Regione aperta o troppo grande: il solver supporta fino a 4096 celle.');
+  if(queue.length>maxCells)throw Error(`Regione aperta o troppo grande: il solver supporta fino a ${maxCells} celle.`);
   c.edges.forEach(k=>{if(board().borders[k]!==undefined)return;const next=neighbors.get(k);if(!seen.has(next)){seen.add(next);queue.push(next);}});
  }
  const cells=queue.map(id=>{const {c,neighbors}=get(id);
@@ -37,7 +38,7 @@ function closedRegion(seed){
  });
  if(state.tilesetMode==='generalized'&&cells.some(c=>c.fixed&&!activeTiles.some(t=>t.every((v,i)=>v===c.fixed[i]))))throw Error('La regione contiene tessere estranee al tileset attivo. Rimuovi le tessere posate prima di risolvere con questa modalità.');
  const usedColors=new Set([...activeTiles.flat(),...cells.flatMap(c=>c.required.filter(v=>v!==null))]);
- if(usedColors.size>16)throw Error('Il solver supporta al massimo 16 colori usati nella ricerca. Disabilita alcune generalizzate o scegli una regione più semplice.');
+ if(capabilities.max_used_colors!=null&&usedColors.size>capabilities.max_used_colors)throw Error(`Il solver supporta al massimo ${capabilities.max_used_colors} colori usati nella ricerca.`);
  return{geometry,palette:[...state.palette],tiles:clone(activeTiles),cells,timeout_seconds:30,solver:$('#solverEngine').value||'optimized'};
 }
 function sessionIsCurrent(){return !!enumerationSession&&enumerationSession.expectedStamp===solverStamp();}
@@ -60,7 +61,7 @@ async function solverRequest(url,options){
   const {solver,capabilities}=await browserSolverPromise;
   const method=options?.method||'GET';
   const body=options?.body?JSON.parse(options.body):{};
-  if(url==='/api/capabilities'&&method==='GET')return capabilities();
+  if(url==='/api/capabilities'&&method==='GET')return solverCapabilities=await capabilities();
   if(url==='/api/enumerate'&&method==='POST')return solver.start(body);
   const match=/^\/api\/jobs\/([^/]+)(\/resume)?$/.exec(url);
   if(match){
@@ -74,7 +75,7 @@ async function solverRequest(url,options){
  if(options?.body&&JSON.parse(options.body).solver==='reference')throw Error('Il confronto con il server locale supporta solo il motore optimized. Usa la modalità browser per reference.');
  const response=await fetch(url,options);const content=response.headers.get('content-type')||'';
  if(!content.includes('application/json'))throw Error('Il solver locale non è disponibile: avvia Wang Studio con python server.py.');
- const data=await response.json();if(!response.ok)throw Error(data.message||'Errore del servizio optimized.');return data;
+ const data=await response.json();if(!response.ok)throw Error(data.message||'Errore del servizio optimized.');if(url==='/api/capabilities')solverCapabilities=data;return data;
 }
 function updateEnumeration(session,result){
  session.status=result.status;session.count=result.count??session.count;session.exact=result.exact===true;
@@ -109,6 +110,7 @@ async function observeEnumeration(run,action){
  try{
   if(action){await solverRequest('/api/jobs/'+session.id+'/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});}
   else{
+   await solverRequest('/api/capabilities');
    const job=await solverRequest('/api/enumerate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session.payload,enumeration_mode:run.mode})});session.id=job.id;
   }
   if(run.cancelled){const result=await solverRequest('/api/jobs/'+session.id,{method:'DELETE'});updateEnumeration(session,result);message(`Ricerca interrotta. Almeno ${session.count} soluzioni trovate.`);return;}

@@ -6,7 +6,9 @@ window.addEventListener('load',async()=>{
   while(!document.querySelector('#browser-test-result'))await new Promise(r=>setTimeout(r,50));
   const {Solver,capabilities}=await import('./vendor/foundry/client.mjs');
   const caps=await capabilities();
-  assert(caps.runtime==='wasm'&&caps.engine.source.sha256&&caps.engine.api_version===1&&caps.engine.wasm_abi_version===2&&caps.max_tiles===null,'versioned Wasm package');
+  assert(caps.runtime==='wasm'&&caps.engine.source.sha256&&caps.engine.api_version===1&&caps.engine.wasm_abi_version===3&&caps.max_tiles===null,'versioned Wasm package');
+  assert(caps.engine.version==='0.3.0'&&!caps.engine.source.dirty,'published clean release, not a local dev build');
+  assert(caps.max_used_colors===65536&&caps.max_cells===65536,'expanded solver capabilities');
   checks.push('engine provenance');
   const provenance=solverProvenance();assert(provenance?.version===caps.engine.version,'project engine provenance');
   assert(validate({version:1,...clone(state),solverEngine:provenance}).solverEngine.version===caps.engine.version,'provenance survives project reload');
@@ -79,7 +81,7 @@ window.addEventListener('load',async()=>{
      pendingEnumerationMode='step';await startRegionSolve({c:cellAt(cell.id)});
      assert(enumerationSession.status==='paused',geometry+' '+n+' '+engine+' SAT');
      assert(JSON.stringify(board().placed[cell.id])===JSON.stringify(expected[n-1]),'render high-ID witness');
-     assert(enumerationSession.engine.wasm_abi_version===2,'actual new engine in UI session');
+     assert(enumerationSession.engine.wasm_abi_version===3,'actual new engine in UI session');
      draw();assert(exportCanvas().width>0,'solution canvas export');
      await resumeEnumeration('count');assert(enumerationSession.exact&&enumerationSession.count==='1','unique exact SAT');
      board().placed={};board().borders[cell.edges[sides-1]]=15;
@@ -89,7 +91,7 @@ window.addEventListener('load',async()=>{
     }
    }
   }
-  checks.push('UI create/edit/export/import/solve/render 23/32/33/64/65 tiles, five geometries, both engines, SAT/UNSAT, ABI 2');
+  checks.push('UI create/edit/export/import/solve/render 23/32/33/64/65 tiles, five geometries, both engines, SAT/UNSAT, ABI 3');
   // A catalog of single-cell generalized pieces needs no private glue colors.
   // Its compiled active set exceeds 32 without exceeding the color budget.
   for(const geometry of ['square','tri-up','tri-side','hex-flat','hex-point']) {
@@ -107,6 +109,37 @@ window.addEventListener('load',async()=>{
    assert(enumerationSession.exact&&enumerationSession.count==='1','generalized 65 SAT '+geometry);
   }
   checks.push('65 generalized atoms in all geometries, serialization and actual Wasm solve');
+  for(const geometry of ['square','tri-up','tri-side','hex-flat','hex-point']) {
+   state={geometry,palette:Array(257).fill('#ffffff'),sets:{},boards:{}};ensure();
+   const sides=count(),seed=cellAt(sides===3?'0,0,0':'0,0');
+   const other=cellAt([...cellNeighbors(seed,geometry).values()][0]);
+   state.sets[family()]=Array.from({length:257},(_,t)=>Array(sides).fill(t));
+   const region=regionBoundary([seed.id,other.id],geometry);
+   board().borders=Object.fromEntries(region.boundary.map(e=>[e.key,256]));
+   const json=JSON.stringify({version:1,...state});
+   await $('#file').onchange({target:{files:[new File([json],'wide-colors.json',{type:'application/json'})],value:'wide-colors.json'}});
+   assert(state.palette.length===257&&tiles().length===257,'wide palette and tiles survive import');
+   let limited=false;try{closedRegion(seed,{max_cells:1});}catch(e){limited=e.message.includes('1 celle');}
+   assert(limited,'region adapter follows engine cell budget');
+   limited=false;try{closedRegion(seed,{max_used_colors:16});}catch(e){limited=e.message.includes('16 colori');}
+   assert(limited,'region adapter follows engine color budget');
+   for(const engine of ['reference','optimized']) {
+    $('#solverEngine').value=engine;board().placed={};
+    pendingEnumerationMode='count';await startRegionSolve({c:seed});
+    assert(enumerationSession.exact&&enumerationSession.count==='1','wide-color UI SAT '+geometry+' '+engine);
+    assert(Object.values(board().placed).every(t=>t.every(c=>c===256)),'color 256 renders unchanged');
+    board().placed={};const edge=region.boundary[0].key;board().borders[edge]=0;
+    await startRegionSolve({c:seed});
+    assert(enumerationSession.exact&&enumerationSession.count==='0','wide-color UI UNSAT '+geometry+' '+engine);
+    board().borders[edge]=256;
+   }
+  }
+  checks.push('257 tiles/colors, JSON import, both engines, adjacent SAT/UNSAT, five geometries, capability budgets');
+  let idle=await solver.start({...data,idle_timeout_seconds:0.05});
+  await wait(idle.id);await new Promise(r=>setTimeout(r,100));
+  assert(solver.get(idle.id).status==='expired'&&!solver.get(idle.id).exact,'explicit idle expiry');
+  idle=await solver.start({...data,timeout_seconds:0});await wait(idle.id);
+  assert(solver.get(idle.id).status==='paused','disabled active deadline');solver.cancel(idle.id);
   const huge={...data,tiles:Array.from({length:16},(_,n)=>Array.from({length:4},(_,d)=>(n>>d)&1)),
    cells:Array.from({length:16},(_,n)=>({id:`${n%4},${Math.floor(n/4)}`,required:[null,null,null,null]})),enumeration_mode:'count'};
   let {id}=await solver.start(huge),result=await wait(id);

@@ -7,7 +7,7 @@ const GeneralizedTiles=(()=>{
  });
  function shades(base,n,palette){
   if(!/^#[0-9a-f]{6}$/i.test(base))throw Error('Colore base non valido.');
-  if(palette.length+n>128)throw Error('Le sfumature superano il limite di 128 colori del progetto.');
+  if(palette.length+n>65536)throw Error('Le sfumature superano il limite di 65536 colori del progetto.');
   const rgb=base.slice(1).match(/../g).map(x=>parseInt(x,16)),end=rgb.reduce((a,b)=>a+b,0)>382?0:255;
   const used=new Set(palette.map(c=>c.toLowerCase())),out=[];
   // Walk a continuous RGB shade ramp, skipping occupied display colors.

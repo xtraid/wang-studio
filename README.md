@@ -56,9 +56,9 @@ older projects default to Atomico with an empty generalized catalog. Switching
 mode or changing the active catalog invalidates solver continuation. Remove
 foreign fixed tiles from the target region before solving in Generalizzato.
 
-Current limits: 32 cells per generalized tile, 100 catalog entries, 128 palette
-colors per project. A solver request still allows only 32 distinct active atomic
-types and 16 used colors, including boundary constraints. The catalog shows the
+Current limits: 32 cells per generalized tile, 100 catalog entries, 65536 palette
+colors per project. Solver requests accept runtime-sized active atomic
+tilesets and up to 65536 used colors, including boundary constraints. The catalog shows the
 active totals; excesses are rejected, never silently truncated. Generated colors
 and existing board placements are retained when deleting a catalog entry, to
 avoid changing existing drawings. Applying a geometric transition activates its
@@ -94,18 +94,19 @@ precision loss. Counting retains a published snapshot, not every solution.
 ### Current limits
 
 The browser solver accepts runtime-sized tilesets, including more than 32 tiles.
-It supports up to 16 used palette entries, 4096 active cells,
-and, for square grids, a bounding rectangle of at most 16384 cells. Unused palette entries do not
+It supports up to 65536 used palette entries and 65536 active cells.
+Sparse square regions use active-cell adjacency without a bounding-rectangle cap. Unused palette entries do not
 count toward the color limit. Tile orientations are fixed; square edges use
 `(N,E,S,W)` order. Triangular and hexagonal edges follow the editor’s polygon
 order. The core uses explicit cell/side adjacency for these geometries and
 uses domain propagation, MRV, an undo trail and DFS for every geometry.
-Up to 32 tiles use the original engine; larger sets use Foundry’s browser-only
-dynamic domains. The optional native connector retains its existing limits.
+Inputs within the native limits (32 tiles, 16 colors, 4096 cells) use the
+original engines; larger inputs use Foundry’s browser-only dynamic engine for
+both selections. Its Wasm memory ceiling is 2 GiB; allocation may fail earlier. The optional native connector retains its existing limits.
 
 Search runs in a dedicated browser Worker with a 30-second deadline per active
 search segment. Waiting between solutions does not consume that deadline;
-a paused session expires after 10 minutes. Stop, timeout or expiry releases
+paused sessions have no automatic idle expiry by default. Stop, timeout or expiry releases
 the Worker and retains the last reported lower bound. **Prima** starts again.
 Closing the page stops the search; save your project as JSON to keep your work.
 
