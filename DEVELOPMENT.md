@@ -156,3 +156,39 @@ published assignments. Both reference and optimized engines support `tri-up`,
 `tri-side`, `hex-flat` and `hex-point`, with the same Worker lifecycle as squares.
 The package's graph input uses dense active cells (4096 maximum) and does not
 allocate a coordinate bounding rectangle. The square API remains compatible.
+
+
+### Runtime-sized browser tilesets (solver-web 0.2.0)
+
+The public JavaScript API remains version 1; its internal Worker/Wasm ABI is 2.
+The vendored adapter allocates `ceil(tile_count / 32)` words per cell and returns
+numeric tile indices without narrowing them to a byte. The editor only handles
+edge arrays. Squares with large tilesets use the general graph entry point.
+Both solver selections use the browser dynamic engine above 32 tiles; native
+Reference, Optimized and OpenMP are unaffected. The installer pins and verifies
+every artifact, including `foundry.wasm`, using `solver.lock.json`.
+
+`tests/browser_wasm.js` exercises actual Chromium UI controls and file handlers
+for 23, 32, 33, 64 and 65 tiles in all five geometries, both engine selections,
+SAT and UNSAT, the highest tile ID, canvas rendering and export. It also solves
+catalogs containing 65 compiled generalized atoms, checks ABI 2 in the running
+session, and checks pause, timeout and cancellation. The browser harness fails
+on unhandled exceptions and `console.error`, and rejects native API requests.
+
+The former solver limit in `closedRegion` and the `/32` generalized status are
+removed. Project loading no longer imposes a separate 10,000-tile ceiling;
+the existing 5 MB import budget remains. The existing 32-cell budget per single
+generalized piece is a separate geometry/uniqueness constraint, not a tileset
+cardinality limit, and remains unchanged. The palette, used-color and region
+budgets also remain unchanged. Browser computation is limited by available
+memory (the shipped Wasm budget is 256 MiB) and the session deadline.
+
+Verified locally for this integration: all six Node suites, all 14 Python tests,
+and the complete headless Chromium flow pass. The installed 0.2.0 package was
+built from clean Foundry commit `84ba5b0606f3aeb61f3448acecaa2249f0f09f9e`.
+Its Wasm SHA-256 is
+`5aaa5f905a6d0b6639c0d81bc2c10bcd489cf91694954f81af132531bbc88980`.
+The installer verified it against the generated manifest, and the copied binary
+was compared byte-for-byte with the build output. Foundry's
+`docs/web-dynamic-domains.md` records engine tests, memory checks and benchmarks.
+No public-site deployment is part of this local integration.

@@ -6,7 +6,7 @@ window.addEventListener('load',async()=>{
   while(!document.querySelector('#browser-test-result'))await new Promise(r=>setTimeout(r,50));
   const {Solver,capabilities}=await import('./vendor/foundry/client.mjs');
   const caps=await capabilities();
-  assert(caps.runtime==='wasm'&&caps.engine.source.sha256&&caps.engine.api_version===1,'versioned Wasm package');
+  assert(caps.runtime==='wasm'&&caps.engine.source.sha256&&caps.engine.api_version===1&&caps.engine.wasm_abi_version===2&&caps.max_tiles===null,'versioned Wasm package');
   checks.push('engine provenance');
   const provenance=solverProvenance();assert(provenance?.version===caps.engine.version,'project engine provenance');
   assert(validate({version:1,...clone(state),solverEngine:provenance}).solverEngine.version===caps.engine.version,'provenance survives project reload');
@@ -52,6 +52,61 @@ window.addEventListener('load',async()=>{
    assert(enumerationSession.exact&&enumerationSession.count==='0',geometry+' conflicting boundary UNSAT');
   }
   checks.push('all triangle/hexagon variants in UI / both engines / first-next-count / incompatible boundaries');
+  // Exercise real editor controls, JSON download/upload handlers and the Worker.
+  for (const geometry of ['square','tri-up','tri-side','hex-flat','hex-point']) {
+   for (const n of [23,32,33,64,65]) {
+    state={geometry,palette:Array.from({length:16},(_,i)=>'#'+(i*0x101010).toString(16).padStart(6,'0')),sets:{},boards:{}};
+    ensure();state.sets[family()]=[];board().placed={};board().borders={};rebuild();
+    const sides=count(), expected=Array.from({length:n},(_,t)=>Array.from({length:sides},(_,d)=>Math.floor(t/16**d)%16));
+    for (const tile of expected) {draft=[...tile];$('#addTile').click();}
+    assert(tiles().length===n&&$('#tiles').children.length===n,geometry+' create '+n);
+    $('#tiles').lastElementChild.ondblclick();
+    ink=(draft[0]+1)%16;$('#editor polygon[data-edge="0"]').dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    assert(draft[0]===(expected[n-1][0]+1)%16,'edit high tile');
+    ink=expected[n-1][0];$('#editor polygon[data-edge="0"]').dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    $('#deleteTile').click();$('#addTile').click();
+    assert(JSON.stringify(tiles())===JSON.stringify(expected),'edit preserves complete tileset');
+    const cell=cellAt(sides===3?'0,0,0':'0,0');
+    board().borders=Object.fromEntries(cell.edges.map((k,d)=>[k,expected[n-1][d]]));
+    let saved;const originalDownload=download;
+    try {download=blob=>{saved=blob;};$('#save').click();}finally{download=originalDownload;}
+    const json=await saved.text();assert(JSON.parse(json).sets[family()].length===n,'export all tiles');
+    state.sets[family()]=[];
+    await $('#file').onchange({target:{files:[new File([json],'large.json',{type:'application/json'})],value:'large.json'}});
+    assert(JSON.stringify(tiles())===JSON.stringify(expected),'import/reload all tiles');
+    for(const engine of ['reference','optimized']) {
+     $('#solverEngine').value=engine;$('#solverEngine').onchange();board().placed={};
+     pendingEnumerationMode='step';await startRegionSolve({c:cellAt(cell.id)});
+     assert(enumerationSession.status==='paused',geometry+' '+n+' '+engine+' SAT');
+     assert(JSON.stringify(board().placed[cell.id])===JSON.stringify(expected[n-1]),'render high-ID witness');
+     assert(enumerationSession.engine.wasm_abi_version===2,'actual new engine in UI session');
+     draw();assert(exportCanvas().width>0,'solution canvas export');
+     await resumeEnumeration('count');assert(enumerationSession.exact&&enumerationSession.count==='1','unique exact SAT');
+     board().placed={};board().borders[cell.edges[sides-1]]=15;
+     pendingEnumerationMode='count';await startRegionSolve({c:cellAt(cell.id)});
+     assert(enumerationSession.exact&&enumerationSession.count==='0',geometry+' '+n+' '+engine+' UNSAT');
+     board().borders[cell.edges[sides-1]]=expected[n-1][sides-1];
+    }
+   }
+  }
+  checks.push('UI create/edit/export/import/solve/render 23/32/33/64/65 tiles, five geometries, both engines, SAT/UNSAT, ABI 2');
+  // A catalog of single-cell generalized pieces needs no private glue colors.
+  // Its compiled active set exceeds 32 without exceeding the color budget.
+  for(const geometry of ['square','tri-up','tri-side','hex-flat','hex-point']) {
+   state={geometry,palette:Array(16).fill('#ffffff'),sets:{},boards:{},generalizedTiles:[],tilesetMode:'generalized'};ensure();
+   const sides=count(),cell=cellAt(sides===3?'0,0,0':'0,0');
+   for(let t=0;t<65;t++) {
+    const borders=Object.fromEntries(cell.edges.map((k,d)=>[k,Math.floor(t/16**d)%16]));
+    const {item}=GeneralizedTiles.compile(geometry,borders,state.palette,'#b99bdd','Piece '+t);
+    item.id='g-'+t;state.generalizedTiles.push(item);
+   }
+   state=validate(JSON.parse(JSON.stringify({version:1,...state})));ensure();rebuild();renderUI();
+   assert(solverTiles().length===65,'65 compiled generalized atoms survive reload');
+   board().borders={...state.generalizedTiles[64].borders};board().placed={};
+   pendingEnumerationMode='count';await startRegionSolve({c:cell});
+   assert(enumerationSession.exact&&enumerationSession.count==='1','generalized 65 SAT '+geometry);
+  }
+  checks.push('65 generalized atoms in all geometries, serialization and actual Wasm solve');
   const huge={...data,tiles:Array.from({length:16},(_,n)=>Array.from({length:4},(_,d)=>(n>>d)&1)),
    cells:Array.from({length:16},(_,n)=>({id:`${n%4},${Math.floor(n/4)}`,required:[null,null,null,null]})),enumeration_mode:'count'};
   let {id}=await solver.start(huge),result=await wait(id);

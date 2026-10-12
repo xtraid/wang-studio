@@ -1,6 +1,6 @@
 {
   "name": "@tiling-foundry/solver-web",
-  "version": "0.1.0-dev.e74e7f2776b9",
+  "version": "0.2.0",
   "type": "module",
   "license": "MIT",
   "exports": "./client.mjs",

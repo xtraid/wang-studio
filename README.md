@@ -93,12 +93,15 @@ precision loss. Counting retains a published snapshot, not every solution.
 
 ### Current limits
 
-The solver accepts 1–32 tiles, up to 16 used palette entries, 4096 active cells,
+The browser solver accepts runtime-sized tilesets, including more than 32 tiles.
+It supports up to 16 used palette entries, 4096 active cells,
 and, for square grids, a bounding rectangle of at most 16384 cells. Unused palette entries do not
 count toward the color limit. Tile orientations are fixed; square edges use
 `(N,E,S,W)` order. Triangular and hexagonal edges follow the editor’s polygon
 order. The core uses explicit cell/side adjacency for these geometries and
-shares domain propagation, MRV, trail and DFS with the square solver.
+uses domain propagation, MRV, an undo trail and DFS for every geometry.
+Up to 32 tiles use the original engine; larger sets use Foundry’s browser-only
+dynamic domains. The optional native connector retains its existing limits.
 
 Search runs in a dedicated browser Worker with a 30-second deadline per active
 search segment. Waiting between solutions does not consume that deadline;

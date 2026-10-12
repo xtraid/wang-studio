@@ -1,11 +1,12 @@
 {
   "name": "@tiling-foundry/solver-web",
-  "version": "0.1.0-dev.e74e7f2776b9",
+  "version": "0.2.0",
   "api_version": 1,
   "solvers": [
     "optimized",
     "reference"
   ],
+  "wasm_abi_version": 2,
   "runtime": "wasm",
   "geometries": [
     "square",
@@ -16,9 +17,9 @@
   ],
   "source": {
     "repository": "https://github.com/xtraid/tiling-foundry",
-    "revision": "96c6e708aa0d13e0cf91106a86c952efd8757d9d",
-    "dirty": true,
-    "sha256": "e74e7f2776b9811ce463117de68546c82088f482b03d061d573c5ac20879d7a8",
+    "revision": "84ba5b0606f3aeb61f3448acecaa2249f0f09f9e",
+    "dirty": false,
+    "sha256": "1e67d973009d2e8421dfd519c4ef7a4b3279b921d5125dc7ca29978b91ab4d8f",
     "files": {
       "LICENSE": "c79137e2368783c00ad8be274368fea3e774df35178a6cda3ca92529a69ea480",
       "include/wang/formula.h": "3a2d00364aa9de9b45bd38d1fa045b0d9a51624a4810f3c586861fe263358303",
@@ -33,12 +34,14 @@
       "include/wang/verify.h": "1bfc5e8127a28b138e92f57912b76b7361e7467786a510ec9557fcfaec8e770d",
       "include/wang/yang_zhang.h": "5db04ad833c46507dfc97ea433e625c4890192ae1a0437f51fb13e1826057127",
       "include/wang/yang_zhang_witness.h": "cc4ec6e2ab6c4af3ef807501dc6bbda8c3727d18a048c70bdc465917669d7937",
-      "packages/solver-web/README.md": "1a8a34bc5a928fac114b83aaa707c68b8917e42af6db3c446d44b4e5e5816c00",
-      "packages/solver-web/bridge.c": "9f853b62f45f40c4155f87e8bebe32fa1a7cdf6a00fe67cd60b83bb3bbccedbe",
+      "packages/solver-web/README.md": "e835c254730797d9ad10c95873c2d10739032993adfdc357a408cec1957b16fb",
+      "packages/solver-web/bridge.c": "2f913643eb1624a688b6a8a7a3e8ee8221a428f7cada1c1a3eb8d171c303991b",
       "packages/solver-web/client.mjs": "937d0b7d7130b14135952bb887f1ad47acd2c76cb4f0738191fcc2f12033946a",
-      "packages/solver-web/package.json": "db9fd4acdac443c980cf725aa1d1fbfcbd28b95604992f11f4ffbaaa00273b8e",
-      "packages/solver-web/prepare.mjs": "ea7f6c22cc32811e0264159b0796adfe009faaa1dde4ad9d032841e7d08a6596",
-      "packages/solver-web/worker.mjs": "8c3025ad686872326892a2ace507966a49cba4395384f4ef73afa3eb7208de2a",
+      "packages/solver-web/dynamic.c": "9037d8da17bc5879ea2fc61df62daf90f53f831068de314424416c4f5dfb429d",
+      "packages/solver-web/dynamic.h": "9250d661cc84139947389146ed4652ecff66621469f405ae1d45a79bc9fe62e5",
+      "packages/solver-web/package.json": "eefec31d7669c39b8be9685a637bcba65b59c939c4c0622832aaf3348d38dee3",
+      "packages/solver-web/prepare.mjs": "f8421b93611321fb22b6806d06d4706c7c95263cb43420fe8bbdf9174ddc7a50",
+      "packages/solver-web/worker.mjs": "bf9f860702b48fdcfd8ffa24dcf02661911fe29556b0a48909af0fa085688b4d",
       "src/core/region.c": "60691b0fd03cb3da493f8371028f26afa52981126be6748507935449c7548274",
       "src/core/tile.c": "3bbba6b996af9cd9e3918de11242e728842315b428341b286ac8e3fc2b400dbe",
       "src/solver/byte_support_table.c": "96efaacf7959ca110238add4f6e34fa2502ba3520e95bf31dfa6f754ae949290",
@@ -49,7 +52,7 @@
       "src/solver/solver_event_trace.h": "62ddf23754854bcaad9b0cb4b74e605f4e3d913be866b6f87a027ac3e35aa160",
       "src/solver/solver_serial.c": "70719ac76b9c38a8ce0138aac8ead7d2a147534e0573238c0b66b287c0c00733",
       "src/verify/verify_tiling.c": "7a8b2f9ff7d946b706beb9dd3e6db9a5dc17b270e6a76183894d98048deffb3b",
-      "tools/build_solver_web.py": "69b9d57f53105d3c47097af78f6b1fd9869eb36a9d3574feeb4135e5fd804da4"
+      "tools/build_solver_web.py": "07137a04e407d987d005970dcd36259f8718183f811a46bfa304c0ee5a9e9066"
     }
   },
   "build": {
@@ -60,6 +63,7 @@
       "-Wextra",
       "-Werror",
       "-O3",
+      "-flto",
       "-Iinclude",
       "--no-entry",
       "-sMODULARIZE=1",
@@ -68,6 +72,7 @@
       "-sASYNCIFY=1",
       "-sASYNCIFY_STACK_SIZE=65536",
       "-sALLOW_MEMORY_GROWTH=1",
+      "-sABORTING_MALLOC=0",
       "-sMAXIMUM_MEMORY=268435456",
       "-sSTACK_SIZE=1048576",
       "-sFILESYSTEM=0",
@@ -76,43 +81,43 @@
     ]
   },
   "limits": {
-    "max_tiles": 32,
+    "max_tiles": null,
     "max_used_colors": 16,
     "max_cells": 4096,
     "max_area": 16384
   },
   "files": {
     "foundry.mjs": {
-      "sha256": "2b253ca02ef0840a6ea725855e9578cf6451051f790f0d74f2de6a1cf0ea1820",
-      "size": 17481
+      "sha256": "f39ad819d3fe66fa162b4b4a59417f8b47d892f6ea5e45cbabe88de5b2814383",
+      "size": 18161
     },
     "foundry.wasm": {
-      "sha256": "83bcc42861636c12f60460be47ed894b317417057d1aaefaa0a59d197ccdc117",
-      "size": 32231
+      "sha256": "5aaa5f905a6d0b6639c0d81bc2c10bcd489cf91694954f81af132531bbc88980",
+      "size": 35937
     },
     "client.mjs": {
       "sha256": "937d0b7d7130b14135952bb887f1ad47acd2c76cb4f0738191fcc2f12033946a",
       "size": 4415
     },
     "worker.mjs": {
-      "sha256": "8c3025ad686872326892a2ace507966a49cba4395384f4ef73afa3eb7208de2a",
-      "size": 3756
+      "sha256": "bf9f860702b48fdcfd8ffa24dcf02661911fe29556b0a48909af0fa085688b4d",
+      "size": 4035
     },
     "prepare.mjs": {
-      "sha256": "ea7f6c22cc32811e0264159b0796adfe009faaa1dde4ad9d032841e7d08a6596",
-      "size": 6345
+      "sha256": "f8421b93611321fb22b6806d06d4706c7c95263cb43420fe8bbdf9174ddc7a50",
+      "size": 6459
     },
     "README.md": {
-      "sha256": "1a8a34bc5a928fac114b83aaa707c68b8917e42af6db3c446d44b4e5e5816c00",
-      "size": 4488
+      "sha256": "e835c254730797d9ad10c95873c2d10739032993adfdc357a408cec1957b16fb",
+      "size": 6482
     },
     "LICENSE": {
       "sha256": "c79137e2368783c00ad8be274368fea3e774df35178a6cda3ca92529a69ea480",
       "size": 1074
     },
     "package.json": {
-      "sha256": "8b05de804ec115af4f14d96f44866a8f9375f50b0c0ec10523470b9bcd4e89cc",
-      "size": 255
+      "sha256": "eefec31d7669c39b8be9685a637bcba65b59c939c4c0622832aaf3348d38dee3",
+      "size": 238
     }
   }
 }

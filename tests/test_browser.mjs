@@ -58,6 +58,7 @@ try {
     const data=JSON.parse(event.data);
     if(data.id){const waiter=pending.get(data.id);if(waiter){pending.delete(data.id);data.error?waiter.reject(Error(JSON.stringify(data.error))):waiter.resolve(data.result);}}
     else if(data.method==='Runtime.exceptionThrown')failures.push(data.params.exceptionDetails);
+    else if(data.method==='Runtime.consoleAPICalled'&&data.params.type==='error')failures.push(data.params.args);
     else if(data.method==='Network.requestWillBeSent'&&new URL(data.params.request.url).pathname.includes('/api/'))apiRequests.push(data.params.request.url);
   };
   call=(method,params={})=>new Promise((resolve,reject)=>{
@@ -79,7 +80,7 @@ try {
     await call('Runtime.evaluate',{expression:scripts.join('\n')+'\nwindow.dispatchEvent(new Event("load"));'});
   }
   const began=Date.now();let result;
-  while(Date.now()-began<45000){
+  while(Date.now()-began<120000){
     const response=await call('Runtime.evaluate',{expression:'JSON.stringify({flow:document.querySelector("#browser-test-result")?.textContent,wasm:document.querySelector("#wasm-test-result")?.textContent})',returnByValue:true});
     result=JSON.parse(response.result.value||'{}');
     if(result.flow?.startsWith('FAIL')||result.wasm?.startsWith('FAIL'))break;

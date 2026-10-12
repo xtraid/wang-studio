@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "package": "@tiling-foundry/solver-web",
-  "version": "0.1.0-dev.e74e7f2776b9",
-  "source": "local:tiling-foundry-solver-web-0.1.0-dev.e74e7f2776b9.tar.gz",
-  "archive_sha256": "d1d4f214954ced729d1a26461c9bbac564df40c171996022955cb01a1735eddf",
-  "manifest_sha256": "1fe57c0460aace134c32f189f348b8eeb0a2c5268ba7a895a3d5dcfda219625c"
+  "version": "0.2.0",
+  "source": "local:tiling-foundry-solver-web-0.2.0.tar.gz",
+  "archive_sha256": "42e3e711b5c8f0e7a86a335c0f626aea830e7f17d53a07561a089ef4d8804646",
+  "manifest_sha256": "105c58972bdaff5263c2505e50755aac127c5928696846d134549a0c70bfb78c"
 }

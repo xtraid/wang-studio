@@ -139,7 +139,7 @@ window.addEventListener('load',async()=>{
   state.palette=large.palette;state.generalizedTiles=[large.item];board().borders=stripBorders;
   rejected=false;try{closedRegion(cellAt('0,0'));}catch(e){rejected=e.message.includes('16 colori');}assert(rejected,'16-color solver limit explicit');
   const another=GeneralizedTiles.compile('square',stripBorders,state.palette,'#b99bdd','Limite tipi');another.item.id='g-3';state.palette=another.palette;state.generalizedTiles.push(another.item);
-  rejected=false;try{closedRegion(cellAt('0,0'));}catch(e){rejected=e.message.includes('32 tipi');}assert(rejected,'32-type solver limit explicit, no truncation');
+  rejected=false;try{closedRegion(cellAt('0,0'));}catch(e){rejected=e.message.includes('16 colori');}assert(rejected,'large generalized sets retain the independent color budget');
   for(const g of ['hex-flat','hex-point','tri-up','tri-side']){
    state={geometry:g,palette:['#ffffff','#222222'],sets:{},boards:{}};ensure();
    const seed=cellAt(g.startsWith('tri')?'0,0,0':'0,0',g),neighbor=[...cellNeighbors(seed,g).values()][0];

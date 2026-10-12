@@ -13,7 +13,7 @@ function solverStamp(){return JSON.stringify({geometry:state.geometry,palette:st
 function closedRegion(seed){
  if(!seed)throw Error('Clicca una cella interna alla regione chiusa.');
  const activeTiles=solverTiles();
- if(!activeTiles.length||activeTiles.length>32)throw Error('Il solver richiede da 1 a 32 tipi atomici attivi. Abilita o disabilita le generalizzate, oppure modifica il tileset atomico.');
+ if(!activeTiles.length)throw Error('Il solver richiede almeno un tipo atomico attivo. Abilita le generalizzate oppure modifica il tileset atomico.');
  const geometry=state.geometry,keys=Object.keys(board().borders);
  if(!keys.length)throw Error('Disegna prima un contorno chiuso con lo strumento Bordi.');
  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
