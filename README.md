@@ -168,13 +168,6 @@ The public app uses GitHub Pages and browser computation, with no paid backend.
 Python and Z3 are not required to use it. Project exports record the selected
 engine and package provenance; this metadata does not certify a saved solution.
 
-## Planned research features
-
-- An editor and tilesets for generalized tiles, with verification that their
-  atomic tiling problem has exactly one solution for the specified boundary.
-
-Generalized tiles are planned and are not part of the current solver integration.
-
 ## Development
 
 For local setup, package updates, tests and the optional native connector, see
