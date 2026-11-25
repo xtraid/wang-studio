@@ -1,208 +1,175 @@
 # Wang Studio
 
-Wang Studio is an **independent editor for research following Tiling Foundry**,
-with its own repository and website. It consumes a versioned solver package
-produced by Foundry. Foundry's Pages link to Studio; the projects do not share
-a repository or a deployment. Studio constructs instances and explores their
-solutions interactively.
+## [Open the editor in your browser →](https://xtraid.github.io/wang-studio/)
 
-The current editor lives in `dist/` (hand-authored static source, no bundler).
-It includes square, hexagonal and triangular grids, editable tilesets, colored
-region boundaries, selection/copy/paste, and transparent PNG exports.
+**Open the page and start working. No repository download, installation or account is required.**
+The editor and both C solvers run on your device, inside the browser.
 
-## Run in the browser
+Wang Studio is an independent editor for tiling research, connected to
+[Tiling Foundry](https://xtraid.github.io/tiling-foundry/) through a versioned
+solver package. It provides a space to construct regions and tilesets, set
+boundary conditions, and explore their solutions.
 
-The default solver runs entirely in a browser Worker using Foundry's compiled
-C engines. Select **C · ottimizzato** or **C · riferimento** in the toolbar.
-No Python solver, Z3, account, server-side computation or npm install is needed.
-The first browser package supports square solving; all five drawing geometries
-remain available. The other solver geometries are planned, not implemented.
+## What works today
 
-The installed runtime is in `dist/vendor/foundry/`, with its provenance and
-SHA-256 recorded in `solver.lock.json`. These are generated package artifacts,
-not a fork of the solver source. To serve the site locally:
+- Draw square, triangular and hexagonal grids, with five geometry variants.
+- Create and edit tilesets and color palettes.
+- Draw colored boundaries or use **Bordo jolly** to delimit a region without
+  requiring a boundary color.
+- Place fixed tiles, select, copy/paste and undo edits.
+- Save and load projects as JSON, and export transparent PNG images.
+- Solve square, triangular and hexagonal regions with either **C · ottimizzato** or **C · riferimento**.
+- Step through solutions, count them, or stop a running search.
+- Search for geometric realizations preserving distinct ordered exterior
+  interfaces, and compare their normalized area error and global contact ratio.
 
-```sh
-python -m http.server 8765 --bind 127.0.0.1 --directory dist
-```
+Both C engines support all five geometry variants, including stepping through
+solutions and exact counting.
 
-Open <http://127.0.0.1:8765/>. Python here only serves static files; any static
-HTTP server works. Closing the page stops its searches. Project JSON exports
-retain the last solver's version, source fingerprint and build information;
-this metadata is provenance, not proof that a saved board is a verified solution.
+## Generalized tilesets
 
-## Update the solver dependency
+The **Atomico** and **Generalizzato** tabs select separate solver inputs.
+Atomico uses only ordinary editable tiles. Generalizzato uses only the generated
+atoms of enabled generalized tiles in the current geometry. Their atoms are
+stored with their parent in the project catalog and shown read-only; they are
+not appended to the ordinary editable tileset. No implicit mixed mode is used.
 
-Build a package in Foundry, or download a versioned release, then install it:
+To create a generalized tile, draw a simple closed boundary with no wildcards,
+select its entire contour with **Seleziona regione**, open **Generalizzato**, choose
+a name and base color, and click **Crea generalizzata dalla selezione**. The outer
+colors remain unchanged. Each internal adjacency gets a private color, shared by
+its two incident sides, sampled along a continuous shade ramp from the base color.
+Already occupied display colors are skipped. Cells are visited by geometric rows,
+top to bottom and right to left; within each cell the existing side order is used.
+Similar-looking shades still have distinct symbolic IDs, shown in the atom list.
 
-```sh
-python tools/solver_package.py install /path/to/tiling-foundry-solver-web-VERSION.tar.gz --sha256 EXPECTED_SHA256
-python tools/solver_package.py verify
-```
+An independent bounded enumeration verifies exactly one tiling of the empty
+source region using only that generalized tile's atoms, without fixed placements,
+rotations or reflections. An inconclusive check does not save the tile. JSON
+imports revalidate the encoding and uniqueness instead of trusting a saved badge.
+Uniqueness is individual, not a promise about arbitrary regions or combinations
+of several generalized tiles. Identical atomic edge tuples count once.
 
-The installer also accepts an HTTPS release URL, with mandatory `--sha256`.
-It validates the archive, API version and individual files before replacement.
-Commit the updated runtime directory and lock together. Future builds of the
-Foundry package carry engine changes into Studio without copying C source.
+Creation leaves the current drawing and ordinary tileset unchanged. Mode,
+enable/disable, creation and deletion support Undo/Redo and JSON persistence;
+older projects default to Atomico with an empty generalized catalog. Switching
+mode or changing the active catalog invalidates solver continuation. Remove
+foreign fixed tiles from the target region before solving in Generalizzato.
 
-## Free hosting
+Generalized tiles have no fixed cell-count limit. Existing resource budgets
+remain: 100 catalog entries and 65536 palette colors per project. Each internal
+adjacency needs a distinct available shade; exhaustion fails without saving a
+partial tile. Uniqueness verification retains its 100000-node work budget and
+reports an inconclusive result instead of accepting an unverified tile. Solver requests accept runtime-sized active atomic
+tilesets and up to 65536 used colors, including boundary constraints. The catalog shows the
+active totals; excesses are rejected, never silently truncated. Generated colors
+and existing board placements are retained when deleting a catalog entry, to
+avoid changing existing drawings. Applying a geometric transition activates its
+new atomic tileset by switching to Atomico. Saved generalized tiles and their
+unique internal encodings remain unchanged; Undo restores the previous mode too.
 
-The independent public repository can publish `dist/` through its own GitHub
-Pages. Enable **Settings → Pages → Source: GitHub Actions**. The workflow
-`.github/workflows/pages.yml` checks package integrity and runs editor and real
-Chromium tests before deploying. Paths work under a project URL such as
-`https://xtraid.github.io/wang-studio/`; no special isolation headers are needed.
-Standard runners and a short artifact retention are used. There is no paid
-compute dependency or custom domain requirement.
+## Solve your first region
 
-## Optional native comparison
+1. [Open Wang Studio](https://xtraid.github.io/wang-studio/).
+2. Select a geometry and create your tileset.
+3. Use **Bordi** to draw a closed contour. Choose boundary colors, or use
+   **Bordo jolly** for unconstrained boundary sides.
+4. Optionally place fixed tiles inside the contour.
+5. Select a C engine, click **Prima**, then click a cell inside the region.
+6. Use **Successiva** to see another solution or **Conta soluzioni** to count.
+   Use **Stop** to interrupt the search.
 
-Requirements: Linux, Python 3.11+, `make`, a C17 compiler, and the sibling
-Tiling Foundry checkout with the runtime-tileset API described below.
-No npm installation, Z3, account or external service is needed for this optional native path.
+Displayed solutions can be undone. They do not become additional fixed tiles
+for the current enumeration. Editing the instance invalidates continuation;
+start a new search after changing its constraints.
 
-```sh
-cd ~/Projects/wang-studio
-python server.py --foundry ~/tiling-foundry
-```
+### Reading the result
 
-Open <http://127.0.0.1:8765/>. The server binds only to loopback. It builds
-Foundry's shared library and this project's thin C ABI bridge. Override the
-Foundry checkout with `--foundry` or `TILING_FOUNDRY_ROOT`; override the port
-with `--port`. `--build-only` builds without starting a server, and
-`--no-build` reuses the existing native build.
+**Almeno N** is a lower bound while enumeration is incomplete.
+**Esattamente N** means the search has exhausted all possibilities; an exact
+zero means the region cannot be tiled with those constraints. A timeout or
+interruption does not mean there is no solution.
 
-Open `http://127.0.0.1:8765/?solver=native` to explicitly use the older local
-optimized C connector. The default URL uses WebAssembly even with this server.
-The Python code in this connector validates input and manages native C jobs;
-it does not run the Python/Z3 solver. The historical `.openai/hosting.json`
-identifies an earlier Site and is not the current deployment configuration.
+Identical tile edge tuples count once, even if the tileset contains duplicate
+IDs. Online counts use BigInt and decimal strings to avoid JavaScript number
+precision loss. Counting retains a published snapshot, not every solution.
 
-## Solve a region
+### Current limits
 
-1. Select **Quadrati** and create the desired tileset.
-2. Draw a closed contour using **Bordi**, choosing its edge colors.
-3. Optionally place fixed tiles inside the contour.
-4. Click **Prima**, then a cell inside the region.
-5. A verified solution fills the region in one undoable operation.
-6. **Successiva** resumes the selected C engine's DFS/trail without restarting.
-7. **Conta soluzioni** continues enumeration to exhaustion or interruption.
+The browser solver accepts runtime-sized tilesets, including more than 32 tiles.
+It supports up to 65536 used palette entries and 65536 active cells.
+Sparse square regions use active-cell adjacency without a bounding-rectangle cap. Unused palette entries do not
+count toward the color limit. Tile orientations are fixed; square edges use
+`(N,E,S,W)` order. Triangular and hexagonal edges follow the editor’s polygon
+order. The core uses explicit cell/side adjacency for these geometries and
+uses domain propagation, MRV, an undo trail and DFS for every geometry.
+Inputs within the native limits (32 tiles, 16 colors, 4096 cells) use the
+original engines; larger inputs use Foundry’s browser-only dynamic engine for
+both selections. Its Wasm memory ceiling is 2 GiB; allocation may fail earlier. The optional native connector retains its existing limits.
 
-The interface shows **Almeno N** until enumeration has actually exhausted the
-search, then **Esattamente N** (including zero for UNSAT). Identical edge tuples
-are counted once, rather than once per duplicate tile ID. Counts use Python
-integers and JSON decimal strings, avoiding JavaScript integer precision loss.
-Counting retains only a published snapshot, not every solution.
+Search runs in a dedicated browser Worker with a 30-second deadline per active
+search segment. Waiting between solutions does not consume that deadline;
+paused sessions have no automatic idle expiry by default. Stop, timeout or expiry releases
+the Worker and retains the last reported lower bound. **Prima** starts again.
+Closing the page stops the search; save your project as JSON to keep your work.
 
-The original region, tileset and fixed tiles are retained for the enumeration
-session. Displaying a solution does not turn it into a new set of fixed tiles.
-**Prima** restarts that original instance when it is still current. Editing the
-instance invalidates continuation; stale results are not applied. Each displayed
-solution can be undone normally.
+## Transition between geometries
 
-A paused callback retains the DFS stack and trail. **Successiva** or
-**Conta** resumes it. Waiting between solutions does not consume the 30-second
-search deadline; an idle paused session expires after 10 minutes. Stop, timeout
-or expiry releases the Worker (or native process) and preserves the last reported lower
-bound. Restart with Prima to begin again after those events.
+Draw one closed region, then open **Transizione geometrica · regione e bordo**.
+Choose the destination, area tolerance (default 30%), independent B/I deviation
+tolerance (default 50%) and search time. Click **Cerca realizzazioni**.
 
-The first integration supports **1–32 tiles, 16 used palette entries,
-4096 active cells, and a bounding rectangle of at most 16384 cells**. Unused
-palette entries do not count toward the solver's color limit. Duplicate tiles
-are allowed; tile orientations are fixed. Square tile edges are `(N,E,S,W)`.
+Transitions preserve the identity, color and cyclic order of exterior interfaces.
+Each colored interface keeps its current number of atomic sides; only unconstrained (jolly)
+interfaces may expand over multiple consecutive sides. **Consenti espansione dei bordi jolly**
+is enabled by default. When disabled, both the total number of exterior sides `B`
+and the current length of every interface must stay unchanged. When enabled,
+`B` may increase, with additional sides assigned only to existing jolly interfaces;
+already expanded runs can never contract. Without jollies, `B` stays unchanged
+in either mode. This counts atomic sides, not Euclidean perimeter length.
+The option is saved in JSON (older projects default to enabled), supports Undo/Redo,
+and changing it stops the search and invalidates its results. Internal cell counts and
+adjacencies can change. Equal-colored interfaces remain distinct and jolly
+interfaces remain unconstrained.
 
-Search runs in a dedicated browser Worker, or an optional native worker process.
-**Stop** terminates it;
-the current deadline is 30 seconds per active search segment. `UNSAT`, `timeout`, `cancelled`, and
-`error` are distinct outcomes. A timeout is never reported as UNSAT. If the
-instance changes while solving, the result is discarded rather than applied
-to a different instance. Existing placed tiles are constraints, not hints.
+Choose from the observed **Pareto frontier**, minimizing relative area error and
+deviation from the source boundary/internal ratio `rho = B/I`. Internal adjacent
+pairs are counted once. Ratio deviation is `abs(rho_target-rho_source) /
+max(rho_target,rho_source)`. Two infinite ratios have zero deviation; one infinite
+and one finite ratio have 100% deviation. Both tolerances are hard constraints.
+Results are sorted by increasing area error, with other tradeoffs selectable.
 
-Hexagon/triangle editing and exports remain available. Their solver connector
-is not implemented yet: the next step is explicit cell/side adjacency in
-Foundry, not a reinterpretation of square-grid results.
+**Applica realizzazione e nuovo tileset** constructs an independent atomic tileset,
+clears the source board and replaces the target-family tileset. The destination
+must be empty. **Undo** restores the previous project, including tilesets.
+Saved projects retain external interface IDs for subsequent transitions; old
+cell-unit projects contribute only their boundary mapping. After editing a saved
+contour, **Ridefinisci interfacce dal bordo** explicitly resets its interfaces.
 
-## Ownership and integration
+Timeout or Stop means **incomplete**, not impossible. The current impossibility
+certificate is an empty area-derived integer cell interval. No source-cell
+junction or internal adjacency is preserved. Holes and nonsimple boundaries
+remain unsupported; the found frontier is not certified globally optimal.
 
-- **Foundry:** native propagation, optimized search, verification and tests.
-- **Foundry's browser package:** C reference/optimized entry points, input
-  validation, Worker lifecycle, versioned build and distribution.
-- **Studio:** editing, closed-region extraction, instance validation, local
-  job lifecycle, independent result checking and presentation.
-- `backend/optimized_bridge.c` marshals arrays and calls
-  `wang_solve_optimized_tileset`. It contains no search implementation.
-- `backend/native_solver.py` validates the request, maps palette entries to
-  compact native color IDs, sets initial domains, and checks the returned
-  solution independently. It does not import Z3 or the Yang–Zhang pipeline.
-- `server.py` serves the interface and manages cancellable worker processes.
-- `dist/solver.js` detects the selected closed region and uses the browser
-  package, or the local API when explicitly selected. The usual editor remains
-  usable during search.
+Satisfiability and solution count are not preserved. The constructed tileset is
+atomic, with no generalized-tile uniqueness claim. See
+[GEOMETRY_TRANSITIONS.md](GEOMETRY_TRANSITIONS.md) for the exact conventions,
+independent certificate, persistence and search limits.
 
-Foundry base at integration: `f1c661b11d5471203b460da1f5a9b755c6091774`.
-The additional runtime-tileset APIs and the browser package are published
-in Foundry’s `solver-web-v0.1.0` release; the original base commit alone does
-not contain them. The canonical 23-tile entry points retain their signatures and semantics.
-Enumeration uses `wang_enumerate_optimized_tileset` in that same core; it
-continues DFS rollback after each verified solution. The one-solution shortcut
-for isolated cells is disabled for enumeration. The existing optimized core is
-shared, including bytewise support, queue
-deduplication, MRV indexing, dynamic DFS and trail optimizations.
+## How it connects to Tiling Foundry
 
-## Checks
+Foundry owns the C solvers. Studio consumes their compiled WebAssembly package,
+with its version, source revision and checksums pinned in
+[`solver.lock.json`](solver.lock.json). Both projects have separate repositories
+and deployments. Updating the package brings Foundry's solver improvements
+into the editor without maintaining a copy of the C solver source here.
 
-```sh
-python tools/solver_package.py verify
-node tests/test_editor.cjs
-node tests/test_browser.mjs
-```
+The public app uses GitHub Pages and browser computation, with no paid backend.
+Python and Z3 are not required to use it. Project exports record the selected
+engine and package provenance; this metadata does not certify a saved solution.
 
-The real browser test uses Chromium (`CHROMIUM=google-chrome` is also accepted),
-a plain static server under `/studio/`, and no npm dependencies. It checks both
-C engines, original constraints, stepping, exact counts, Stop, timeout, stale
-results, project provenance and PNG transparency, with no native API calls.
+## Development
 
-For the optional native connector:
-
-```sh
-python server.py --build-only
-python -m unittest discover -s tests -v
-make -C ~/tiling-foundry c-check
-```
-
-Studio includes differential tests against exhaustive enumeration on 100
-small instances, plus fixed-tile, 32-tile, hole, validation and job-lifecycle
-checks. Enumeration is separately compared with exhaustive solution sets on
-100 small instances, and tested on duplicate/isolated/disconnected cells,
-32-tile domains, known closed-region counts, stop, timeout and native process
-continuation. Foundry adds runtime-tileset and enumeration C regression tests. Browser checks cover
-interactive selection and the real local optimized integration.
-
-## Local API
-
-- `GET /api/capabilities`: engine ID `optimized` and current limits.
-- `POST /api/solve`: `{geometry, palette, tiles, cells, timeout_seconds}`;
-  each cell has `id: "x,y"`, `required: [N,E,S,W]` with `null` unconstrained,
-  and optional `fixed: [N,E,S,W]`. Returns a job ID.
-- `GET /api/jobs/<id>`: running or terminal result. SAT includes tile-index
-  assignments, elapsed solver time and native search metrics.
-- `POST /api/enumerate`: the same instance plus `enumeration_mode: "step"`
-  (default) or `"count"`. Returns an incremental job ID.
-- `POST /api/jobs/<id>/resume`: `{action: "next"}` or `{action: "count"}`;
-  resumes a paused enumeration. A generation number prevents stale pause
-  responses from being confused with the next solution.
-- `GET /api/jobs/<id>` for enumeration includes `count` (decimal string),
-  `exact`, and status `running`, `paused`, `complete`, `timeout`, `cancelled`,
-  `expired`, or `error`. Only exhaustive `complete` makes the count exact.
-- `DELETE /api/jobs/<id>`: cancel the native process; enumeration retains
-  its last published lower bound.
-
-## Next work
-
-Generalize Foundry's square neighbor lookup to explicit side adjacency for
-hexagons and triangles; then expose the same optimized endpoint for all five
-geometries. Wider domains and a larger color space are separate extensions.
-
-### Bordi jolly
-
-Il pulsante **Bordo jolly** attiva il disegno di contorni che delimitano una regione senza imporre un colore. Sono riconoscibili dal tratteggio bianco su fondo scuro; scegliendo un colore dalla palette si torna ai bordi colorati. Ricliccare un bordo dello stesso tipo lo rimuove. Funzionano nelle cinque geometrie, con copia/incolla, salvataggio e PNG trasparente. Il solver quadrato e il conteggio riconoscono i contorni jolly; le tessere adiacenti continuano a rispettare la regola Wang. Nel JSON un bordo jolly ha valore `null`, distinto da un lato senza bordo.
+For local setup, package updates, tests and the optional native connector, see
+[DEVELOPMENT.md](DEVELOPMENT.md). None of those steps is needed to use the
+[online editor](https://xtraid.github.io/wang-studio/).
