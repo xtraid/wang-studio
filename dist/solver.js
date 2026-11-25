@@ -1,6 +1,6 @@
 /* Tiling Foundry package connector. Browser Worker by default; optional local API. */
 let activeSolve=null,enumerationSession=null,pendingEnumerationMode='step';
-let browserSolverPromise=null;
+let browserSolverPromise=null,solverCapabilities=null;
 function solverProvenance(){
  const session=enumerationSession;
  if(!session?.engine)return state.solverEngine||null;
@@ -8,32 +8,38 @@ function solverProvenance(){
  return{package:engine.name,version:engine.version,api_version:engine.api_version,
   solver:session.payload.solver||'optimized',source:engine.source,build:engine.build};
 }
-function solverStamp(){return JSON.stringify({geometry:state.geometry,palette:state.palette,tiles:tiles(),board:board(),solver:$('#solverEngine').value||'optimized'});}
-function closedRegion(seed){
- if(state.geometry!=='square')throw Error('Il collegamento optimized supporta per ora solo la griglia quadrata.');
+function solverTiles(){return state.tilesetMode==='generalized'?GeneralizedTiles.active(state,state.geometry):tiles();}
+function solverStamp(){return JSON.stringify({geometry:state.geometry,palette:state.palette,tiles:solverTiles(),tilesetMode:state.tilesetMode??'atomic',board:board(),solver:$('#solverEngine').value||'optimized'});}
+function closedRegion(seed,capabilities=solverCapabilities??{}){
  if(!seed)throw Error('Clicca una cella interna alla regione chiusa.');
- if(!tiles().length||tiles().length>32)throw Error('Optimized richiede da 1 a 32 tessere nel tileset.');
- const keys=Object.keys(board().borders);if(!keys.length)throw Error('Disegna prima un contorno chiuso con lo strumento Bordi.');
+ const maxCells=capabilities.max_cells??65536;
+ const activeTiles=solverTiles();
+ if(!activeTiles.length)throw Error('Il solver richiede almeno un tipo atomico attivo. Abilita le generalizzate oppure modifica il tileset atomico.');
+ const geometry=state.geometry,keys=Object.keys(board().borders);
+ if(!keys.length)throw Error('Disegna prima un contorno chiuso con lo strumento Bordi.');
  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
  for(const k of keys)for(const [x,y]of borderPoints(k)){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}
- const queue=[seed.id],seen=new Set(queue),offsets=[[0,-1],[1,0],[0,1],[-1,0]];
+ const queue=[seed.id],seen=new Set(queue),cache=new Map();
+ const get=id=>{if(!cache.has(id)){const c=cellAt(id,geometry);cache.set(id,{c,neighbors:cellNeighbors(c,geometry)});}return cache.get(id);};
  for(let head=0;head<queue.length;head++){
-  const id=queue[head],[x,y]=id.split(',').map(Number);
-  if(x<minX||y<minY||x>=maxX||y>=maxY)throw Error('Il contorno è aperto, oppure hai cliccato all’esterno. Chiudi tutti i lati della regione.');
-  if(queue.length>4096)throw Error('Regione aperta o troppo grande: il primo collegamento supporta fino a 4096 celle.');
-  const c=cellAt(id);
-  c.edges.forEach((k,d)=>{if(board().borders[k]!==undefined)return;const[dx,dy]=offsets[d],next=`${x+dx},${y+dy}`;if(!seen.has(next)){seen.add(next);queue.push(next);}});
+  const {c,neighbors}=get(queue[head]),[x,y]=c.center;
+  if(x<minX-1e-4||y<minY-1e-4||x>maxX+1e-4||y>maxY+1e-4)throw Error('Il contorno è aperto, oppure hai cliccato all’esterno. Chiudi tutti i lati della regione.');
+  if(queue.length>maxCells)throw Error(`Regione aperta o troppo grande: il solver supporta fino a ${maxCells} celle.`);
+  c.edges.forEach(k=>{if(board().borders[k]!==undefined)return;const next=neighbors.get(k);if(!seen.has(next)){seen.add(next);queue.push(next);}});
  }
- const cells=queue.map(id=>{const c=cellAt(id),[x,y]=id.split(',').map(Number);
-  const required=c.edges.map((k,d)=>{
-   const border=board().borders[k],[dx,dy]=offsets[d],next=`${x+dx},${y+dy}`;
-   const outside=!seen.has(next)?board().placed[next]:null;
-   if(outside&&border!==undefined&&border!==null&&outside[(d+2)%4]!==border)throw Error('Una tessera esterna non corrisponde al colore del contorno.');
-   return border??(outside?outside[(d+2)%4]:null);
+ const cells=queue.map(id=>{const {c,neighbors}=get(id);
+  const required=c.edges.map(k=>{
+   const border=board().borders[k],next=neighbors.get(k),outside=!seen.has(next)?board().placed[next]:null;
+   const side=outside?get(next).c.edges.indexOf(k):-1;
+   if(outside&&border!==undefined&&border!==null&&outside[side]!==border)throw Error('Una tessera esterna non corrisponde al colore del contorno.');
+   return border??(outside?outside[side]:null);
   });
   return{id,required,fixed:board().placed[id]?[...board().placed[id]]:null};
  });
- return{geometry:'square',palette:[...state.palette],tiles:clone(tiles()),cells,timeout_seconds:30,solver:$('#solverEngine').value||'optimized'};
+ if(state.tilesetMode==='generalized'&&cells.some(c=>c.fixed&&!activeTiles.some(t=>t.every((v,i)=>v===c.fixed[i]))))throw Error('La regione contiene tessere estranee al tileset attivo. Rimuovi le tessere posate prima di risolvere con questa modalità.');
+ const usedColors=new Set([...activeTiles.flat(),...cells.flatMap(c=>c.required.filter(v=>v!==null))]);
+ if(capabilities.max_used_colors!=null&&usedColors.size>capabilities.max_used_colors)throw Error(`Il solver supporta al massimo ${capabilities.max_used_colors} colori usati nella ricerca.`);
+ return{geometry,palette:[...state.palette],tiles:clone(activeTiles),cells,timeout_seconds:30,solver:$('#solverEngine').value||'optimized'};
 }
 function sessionIsCurrent(){return !!enumerationSession&&enumerationSession.expectedStamp===solverStamp();}
 function solveButtons(){
@@ -55,7 +61,7 @@ async function solverRequest(url,options){
   const {solver,capabilities}=await browserSolverPromise;
   const method=options?.method||'GET';
   const body=options?.body?JSON.parse(options.body):{};
-  if(url==='/api/capabilities'&&method==='GET')return capabilities();
+  if(url==='/api/capabilities'&&method==='GET')return solverCapabilities=await capabilities();
   if(url==='/api/enumerate'&&method==='POST')return solver.start(body);
   const match=/^\/api\/jobs\/([^/]+)(\/resume)?$/.exec(url);
   if(match){
@@ -65,10 +71,11 @@ async function solverRequest(url,options){
   }
   throw Error('Operazione del solver non supportata.');
  }
+ if(options?.body&&JSON.parse(options.body).geometry&&JSON.parse(options.body).geometry!=='square')throw Error('Per triangoli ed esagoni usa la modalità browser (senza ?solver=native).');
  if(options?.body&&JSON.parse(options.body).solver==='reference')throw Error('Il confronto con il server locale supporta solo il motore optimized. Usa la modalità browser per reference.');
  const response=await fetch(url,options);const content=response.headers.get('content-type')||'';
  if(!content.includes('application/json'))throw Error('Il solver locale non è disponibile: avvia Wang Studio con python server.py.');
- const data=await response.json();if(!response.ok)throw Error(data.message||'Errore del servizio optimized.');return data;
+ const data=await response.json();if(!response.ok)throw Error(data.message||'Errore del servizio optimized.');if(url==='/api/capabilities')solverCapabilities=data;return data;
 }
 function updateEnumeration(session,result){
  session.status=result.status;session.count=result.count??session.count;session.exact=result.exact===true;
@@ -78,7 +85,12 @@ function updateEnumeration(session,result){
 function checkedAssignments(payload,assignments){
  if(!assignments||Object.keys(assignments).length!==payload.cells.length)throw Error('Risposta del solver non valida.');
  const byId=new Map(payload.cells.map(c=>[c.id,c]));
- for(const c of payload.cells){const id=assignments[c.id],tile=payload.tiles[id];if(!Number.isInteger(id)||!tile||c.required.some((v,d)=>v!==null&&tile[d]!==v)||c.fixed&&c.fixed.some((v,d)=>v!==tile[d]))throw Error('La soluzione non rispetta i vincoli originali della regione.');const[x,y]=c.id.split(',').map(Number);[[0,-1],[1,0],[0,1],[-1,0]].forEach(([dx,dy],d)=>{const n=`${x+dx},${y+dy}`;if(byId.has(n)&&tile[d]!==payload.tiles[assignments[n]]?.[(d+2)%4])throw Error('La soluzione contiene lati incompatibili.');});}
+ for(const c of payload.cells){
+  const id=assignments[c.id],tile=payload.tiles[id];
+  if(!Number.isInteger(id)||!tile||c.required.some((v,d)=>v!==null&&tile[d]!==v)||c.fixed&&c.fixed.some((v,d)=>v!==tile[d]))throw Error('La soluzione non rispetta i vincoli originali della regione.');
+  const cell=cellAt(c.id,payload.geometry),neighbors=cellNeighbors(cell,payload.geometry);
+  cell.edges.forEach((k,d)=>{const n=neighbors.get(k);if(byId.has(n)){const side=cellAt(n,payload.geometry).edges.indexOf(k);if(tile[d]!==payload.tiles[assignments[n]]?.[side])throw Error('La soluzione contiene lati incompatibili.');}});
+ }
  return assignments;
 }
 function applyEnumerationSolution(session,result){
@@ -98,6 +110,7 @@ async function observeEnumeration(run,action){
  try{
   if(action){await solverRequest('/api/jobs/'+session.id+'/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});}
   else{
+   await solverRequest('/api/capabilities');
    const job=await solverRequest('/api/enumerate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...session.payload,enumeration_mode:run.mode})});session.id=job.id;
   }
   if(run.cancelled){const result=await solverRequest('/api/jobs/'+session.id,{method:'DELETE'});updateEnumeration(session,result);message(`Ricerca interrotta. Almeno ${session.count} soluzioni trovate.`);return;}
@@ -146,7 +159,6 @@ async function startRegionSolve(h){
  }catch(error){message(error.message);}
 }
 function chooseEnumeration(mode){
- if(state.geometry!=='square'){message('Optimized supporta per ora i quadrati; esagoni e triangoli sono ancora da realizzare.');return;}
  pendingEnumerationMode=mode;
  if(sessionIsCurrent()){
   if(mode==='count'&&enumerationSession.status==='paused')return resumeEnumeration('count');

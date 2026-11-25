@@ -1,4 +1,4 @@
-import {prepare, limits} from './prepare.mjs';
+import {prepare, limits, geometries} from './prepare.mjs';
 
 const terminal = new Set(['complete', 'cancelled', 'timeout', 'expired', 'error']);
 let manifestPromise;
@@ -9,7 +9,7 @@ export async function capabilities() {
     if (manifest.api_version !== 1) throw Error('Versione del pacchetto solver non compatibile.');
     return manifest;
   }).catch(error => { manifestPromise = null; throw error; });
-  return {solver: 'optimized', solvers: ['optimized', 'reference'], runtime: 'wasm', geometries: ['square'],
+  return {solver: 'optimized', solvers: ['optimized', 'reference'], runtime: 'wasm', geometries,
     enumeration: true, duplicate_tiles: 'collapsed', ...limits,
     engine: await manifestPromise};
 }
@@ -19,14 +19,14 @@ export class Solver {
 
   async start(payload) {
     const copy = structuredClone(payload);
-    const {timeout, solver} = prepare(copy);
+    const {timeout, idleTimeout, solver} = prepare(copy);
     this.reap();
     if ([...this.jobs.values()].some(job => !terminal.has(job.result.status))) {
       throw Error('È già presente una ricerca. Premi Stop prima di avviarne un’altra.');
     }
     // Reserve the slot before awaiting the manifest to prevent concurrent starts.
     const id = crypto.randomUUID();
-    const job = {worker: null, timer: null, generation: 0, timeout, finished: null,
+    const job = {worker: null, timer: null, generation: 0, timeout, idleTimeout, finished: null,
       result: {status: 'running', solver, runtime: 'wasm', count: '0', exact: false, generation: 0}};
     this.jobs.set(id, job);
     this.arm(job, timeout * 1000, 'timeout');
@@ -40,7 +40,7 @@ export class Solver {
         if (terminal.has(job.result.status) || data.generation != null && data.generation !== job.generation) return;
         if (data.status === 'error') { this.finish(job, 'error', data.message); return; }
         job.result = {...job.result, ...data};
-        if (data.status === 'paused') this.arm(job, 600000, 'expired');
+        if (data.status === 'paused') this.arm(job, job.idleTimeout * 1000, 'expired');
         else if (terminal.has(data.status)) this.finish(job, data.status);
         // Progress does not reset the active deadline; resume() starts a segment.
       };
@@ -56,6 +56,7 @@ export class Solver {
 
   arm(job, milliseconds, outcome) {
     clearTimeout(job.timer);
+    if (milliseconds === 0) { job.timer = null; return; }
     job.timer = setTimeout(() => this.finish(job, outcome), milliseconds);
   }
 
